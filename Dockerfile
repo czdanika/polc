@@ -15,8 +15,8 @@ COPY app ./app
 RUN useradd -u 1000 -m polc && mkdir -p /data && chown polc /data
 USER polc
 
-ENV DATA_DIR=/data QT_QPA_PLATFORM=offscreen PYTHONUNBUFFERED=1
+ENV DATA_DIR=/data PORT=8080 QT_QPA_PLATFORM=offscreen PYTHONUNBUFFERED=1
 VOLUME /data
-EXPOSE 8080
-HEALTHCHECK --interval=60s --timeout=5s CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/egeszseg')" || exit 1
-CMD ["uvicorn", "--factory", "app.main:create_app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers", "--forwarded-allow-ips", "*"]
+EXPOSE 8080 8181
+HEALTHCHECK --interval=60s --timeout=5s CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/egeszseg' % os.environ.get('PORT','8080'))" || exit 1
+CMD ["sh", "-c", "exec uvicorn --factory app.main:create_app --host 0.0.0.0 --port ${PORT:-8080} --proxy-headers --forwarded-allow-ips '*'"]

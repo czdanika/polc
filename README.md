@@ -42,6 +42,7 @@ Kindle méretben (600×800), teszt-könyvtárral:
 | `FEED_NAME` | Könyvtár 1 | Megjelenített név |
 | `FEED_USERNAME`, `FEED_PASSWORD` | – | Ha meg van adva, nincs belépés a Kindle-en |
 | `FEED_2_URL` … `FEED_9_URL` | – | További könyvtárak (`_NAME`, `_USERNAME`, `_PASSWORD` is) |
+| `PORT` | 8080 | Belső port a konténerben |
 | `TITLE` | Polc | Az oldal neve |
 | `DEFAULT_VIEW` | lista | `lista`, `racs` vagy `tomor` |
 | `CONVERT_ENABLED` | true | EPUB → AZW3 konverzió |

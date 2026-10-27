@@ -5,10 +5,11 @@ services:
     container_name: polc
     restart: unless-stopped
     ports:
-      - "18100:8080"
+      - "18100:8181"
     volumes:
       - polc-data:/data
     environment:
+      - PORT=8181
       - TITLE=Polc
       - FEED_NAME=Calibre
       - FEED_URL=http://192.168.0.100:18082/opds
