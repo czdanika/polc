@@ -17,6 +17,16 @@ Az [evan-buss/opds-proxy](https://github.com/evan-buss/opds-proxy) ötletére é
 - **Belépés** egyszer, titkosított sütiben megjegyezve; vagy előre beállított felhasználó a stackben
 - Nincs flexbox és nincs JavaScript, így régi Kindle böngészőn is működik
 
+## Képernyőképek
+
+Kindle méretben (600×800), teszt-könyvtárral:
+
+| Főoldal | Lista nézet | Borítók nézet |
+|---|---|---|
+| ![Főoldal](docs/kepernyokepek/2_fooldal.png) | ![Lista](docs/kepernyokepek/3_lista.png) | ![Borítók](docs/kepernyokepek/4_racs.png) |
+| **Tömör nézet** | **Könyv adatlap** | **Szerzők** |
+| ![Tömör](docs/kepernyokepek/5_tomor.png) | ![Könyv](docs/kepernyokepek/6_konyv.png) | ![Szerzők](docs/kepernyokepek/7_szerzok.png) |
+
 ## Telepítés (Portainer)
 
 1. Töltsd fel ezt a mappát egy GitHub repóba (pl. `czdanika/polc`). A GitHub Actions lefuttatja a teszteket, és felteszi az image-et a `ghcr.io/czdanika/polc:latest` címre (amd64 + arm64).
