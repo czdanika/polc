@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ heading }}</h1>
+<div class="box">{{ text }}</div>
+{% if back %}<p><a class="btn" href="{{ back }}">« Vissza</a></p>{% endif %}
+{% endblock %}

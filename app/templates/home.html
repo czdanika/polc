@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Könyvtárak</h1>
+{% if not feeds %}<div class="box">Nincs beállított könyvtár. Add meg a <b>FEED_URL</b> környezeti változót.</div>{% endif %}
+<div class="tiles">{% for f in feeds %}<a class="tile" href="{{ u_feed(f.id, f.root_path) }}">{{ f.name }}</a>{% endfor %}</div>
+{% endblock %}

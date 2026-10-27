@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Beállítások{% endblock %}
+{% block content %}
+<div class="crumb"><a href="/">« Vissza a könyvtárba</a></div>
+<h1>Beállítások</h1>
+{% if saved %}<div class="box"><b>Mentve.</b></div>{% endif %}
+<form method="post" action="/beallitasok">
+  <label for="n">Alapértelmezett nézet</label>
+  <select class="mezo" id="n" name="nezet">
+    {% for key, label in views.items() %}<option value="{{ key }}"{% if key == view %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  {% if can_mail %}
+  <label for="k">Kindle e-mail címed (…@kindle.com)</label>
+  <input class="mezo" id="k" type="text" name="kindle" value="{{ own_email }}" placeholder="{{ s.kindle_email or 'pelda_123@kindle.com' }}" autocapitalize="off" autocorrect="off">
+  <p class="small">Az Amazon fiókodban a <b>{{ s.smtp_from }}</b> címet fel kell venni a jóváhagyott feladók közé (Tartalom és eszközök → Beállítások → Személyes dokumentumok).</p>
+  {% else %}<input type="hidden" name="kindle" value="{{ own_email }}">{% endif %}
+  <p><button class="btn fo" type="submit">Mentés</button></p>
+</form>
+
+<h2>Állapot</h2>
+<table class="meta">
+  <tr><td><b>Kindle-konverzió (AZW3)</b></td><td>{{ 'bekapcsolva' if can_convert else 'nem elérhető' }}</td></tr>
+  <tr><td><b>Küldés e-mailben</b></td><td>{{ 'beállítva' if can_mail else 'nincs beállítva' }}</td></tr>
+  <tr><td><b>Könyvtárak</b></td><td>{% for f in s.feeds %}{{ f.name }}{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+</table>
+{% if logged_in %}<p><a class="btn" href="/kilepes">Kijelentkezés</a></p>{% endif %}
+{% endblock %}

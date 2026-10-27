@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+{% set sep = '&' if '?' in here else '?' %}
+{% set base_here = here.replace('&nezet=lista','').replace('&nezet=racs','').replace('&nezet=tomor','') %}
+{% if not is_root %}<div class="crumb"><a href="{{ u_feed(feed.id, feed.root_path) }}">« {{ feed.name }}</a></div>{% endif %}
+<h1>{{ heading }}</h1>
+{% if page.total is not none %}<div class="muted">{{ page.total }} találat</div>{% endif %}
+
+{% if page.books %}
+<div class="views">Nézet:
+{% for key, label in views.items() %}{% if key == view %}<b>{{ label }}</b>{% else %}<a href="{{ base_here }}{{ sep }}nezet={{ key }}">{{ label }}</a>{% endif %}{% endfor %}
+</div>
+{% endif %}
+
+{% if page.navs %}
+  {% if view == 'tomor' or page.navs|length > 24 %}
+  <div class="navlist">
+  {% for n in page.navs %}<a href="{{ u_feed(feed.id, n.nav_path) }}">{{ n.title }}{% if n.count %}<span class="db">{{ n.count }}</span>{% endif %}</a>{% endfor %}
+  </div>
+  {% else %}
+  <div class="tiles">{% for n in page.navs %}<a class="tile" href="{{ u_feed(feed.id, n.nav_path) }}">{{ n.title }}{% if n.count %}<span class="db">{{ n.count }} db</span>{% elif n.summary_text and n.summary_text|length < 60 %}<span class="db">{{ n.summary_text }}</span>{% endif %}</a>{% endfor %}</div>
+  {% endif %}
+{% endif %}
+
+{% if page.books %}
+  {% if view == 'racs' %}
+  <div class="grid">
+  {% for e in page.books %}<a class="cell" href="{{ u_book(feed.id, path, e.id) }}">{% if e.thumb %}<img src="{{ u_cover(feed.id, e.thumb, 240) }}" alt="">{% else %}<div class="noimg"><span>{{ e.title }}</span></div>{% endif %}<span class="ct">{{ e.title }}</span><span class="ca">{{ e.author_str }}</span></a>{% endfor %}
+  </div>
+  {% elif view == 'tomor' %}
+  <ol class="compact">
+  {% for e in page.books %}<li><a href="{{ u_book(feed.id, path, e.id) }}">{{ e.title }}</a>{% if e.authors %} – {{ e.author_str }}{% endif %}</li>{% endfor %}
+  </ol>
+  {% else %}
+  <table class="books">
+  {% for e in page.books %}{% set kc = kindle_choice(feed.id, e) %}
+  <tr>
+    <td class="c"><a href="{{ u_book(feed.id, path, e.id) }}">{% if e.thumb %}<img src="{{ u_cover(feed.id, e.thumb, 152) }}" alt="">{% endif %}</a></td>
+    <td>
+      <a class="bt" href="{{ u_book(feed.id, path, e.id) }}">{{ e.title }}</a>
+      {% if e.authors %}<div class="ba">{{ e.author_str }}</div>{% endif %}
+      {% if e.series %}<div class="small">{{ e.series }}{% if e.series_index %} #{{ e.series_index|replace('.0','') }}{% endif %}</div>{% endif %}
+      <div>{% for a in e.acquisitions %}<span class="fmt">{{ a.label }}</span>{% endfor %}</div>
+      {% if kc %}<a class="btn kicsi fo" href="{{ kc[1] }}">{{ kc[0] }}</a>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </table>
+  {% endif %}
+{% endif %}
+
+{% if not page.navs and not page.books %}
+<div class="box">Itt nincs egyetlen könyv sem.</div>
+{% endif %}
+
+{% if page.prev or page.next %}
+<div class="pager">
+{% if page.prev %}<a class="btn" href="{{ u_feed(feed.id, page.prev) }}">« Előző</a>{% endif %}
+{% if page.next %}<a class="btn fo" href="{{ u_feed(feed.id, page.next) }}">Következő »</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

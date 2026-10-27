@@ -1,0 +1,34 @@
+# Polc – Portainer stack (az opds-proxy helyére, ugyanazon a 18100-as porton)
+services:
+  polc:
+    image: ghcr.io/czdanika/polc:latest
+    container_name: polc
+    restart: unless-stopped
+    ports:
+      - "18100:8080"
+    volumes:
+      - polc-data:/data
+    environment:
+      - TITLE=Polc
+      - FEED_NAME=Calibre
+      - FEED_URL=http://192.168.0.100:18082/opds
+      # Ha kitöltöd, a Kindle-en nem kell belépni (csak otthoni hálózaton használd így!)
+      # - FEED_USERNAME=kindle
+      # - FEED_PASSWORD=
+      - DEFAULT_VIEW=lista          # lista | racs | tomor
+      - CONVERT_ENABLED=true        # EPUB -> AZW3 a Kindle-nek
+      - COVER_GRAYSCALE=true
+      # --- Küldés Kindle-re e-mailben (opcionális) ---
+      # - SMTP_HOST=smtp.gmail.com
+      # - SMTP_PORT=587
+      # - SMTP_SECURITY=starttls    # starttls | ssl | none
+      # - SMTP_USER=valaki@gmail.com
+      # - SMTP_PASSWORD=alkalmazas-jelszo
+      # - SMTP_FROM=valaki@gmail.com
+      # - KINDLE_EMAIL=daniel_xyz@kindle.com
+      # Második könyvtár (opcionális):
+      # - FEED_2_NAME=Másik
+      # - FEED_2_URL=http://...
+
+volumes:
+  polc-data:

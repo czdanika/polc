@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ e.title }}{% endblock %}
+{% block content %}
+{% set kc = kindle_choice(feed.id, e) %}
+{% set mc = mail_choice(e) %}
+<div class="crumb"><a href="{{ u_feed(feed.id, path) }}">« Vissza: {{ list_title or feed.name }}</a></div>
+{% if sent %}<div class="box"><b>Elküldve!</b> A könyv pár percen belül megjelenik a Kindle-öd könyvtárában (Wi-Fi szükséges).</div>{% endif %}
+<table class="detail"><tr>
+  {% if e.cover %}<td class="c"><img src="{{ u_cover(feed.id, e.cover, 420) }}" alt=""></td>{% endif %}
+  <td>
+    <h1 style="margin-top:0">{{ e.title }}</h1>
+    {% if e.authors %}<div style="font-size:21px">{{ e.author_str }}</div>{% endif %}
+    <table class="meta">
+      {% if e.series %}<tr><td><b>Sorozat</b></td><td>{{ e.series }}{% if e.series_index %} #{{ e.series_index|replace('.0','') }}{% endif %}</td></tr>{% endif %}
+      {% if e.publisher %}<tr><td><b>Kiadó</b></td><td>{{ e.publisher }}</td></tr>{% endif %}
+      {% if e.issued %}<tr><td><b>Megjelenés</b></td><td>{{ e.issued[:10] }}</td></tr>{% endif %}
+      {% if e.language %}<tr><td><b>Nyelv</b></td><td>{{ {'hun':'magyar','hu':'magyar','eng':'angol','en':'angol','ger':'német','deu':'német','de':'német'}.get(e.language, e.language) }}</td></tr>{% endif %}
+      {% if e.categories %}<tr><td><b>Címkék</b></td><td>{{ e.categories|join(', ') }}</td></tr>{% endif %}
+      <tr><td><b>Formátum</b></td><td>{% for a in e.acquisitions %}<span class="fmt">{{ a.label }}{% if a.size %} · {{ (a.size / 1048576)|round(1) }} MB{% endif %}</span>{% endfor %}</td></tr>
+    </table>
+  </td>
+</tr></table>
+
+<div class="actions">
+  {% if kc %}<a class="btn fo" href="{{ kc[1] }}">{{ kc[0] }}</a>{% endif %}
+  {% if can_mail and mc %}
+  <form class="inline" method="post" action="/kuldes/{{ feed.id }}">
+    <input type="hidden" name="p" value="{{ mc.path }}"><input type="hidden" name="id" value="{{ e.id }}"><input type="hidden" name="lista" value="{{ path }}">
+    <button class="btn" type="submit">Küldés Kindle-re (e-mail)</button>
+  </form>
+  {% if not kindle_email %}<div class="small">Az e-mailes küldéshez add meg a Kindle címedet a <a href="/beallitasok">Beállításokban</a>.</div>{% endif %}
+  {% endif %}
+</div>
+
+{% if e.acquisitions|length > 1 or not kc %}
+<div class="small">Egyéb formátumok:
+{% for a in e.acquisitions %}<a class="btn kicsi" href="{{ u_dl(feed.id, e, a.ext) }}">{{ a.label }}</a>{% endfor %}
+</div>
+{% endif %}
+
+{% if e.summary_html %}
+<h2>Leírás</h2>
+<div class="desc">{{ e.summary_html|safe }}</div>
+{% endif %}
+{% endblock %}
