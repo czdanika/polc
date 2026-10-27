@@ -2,8 +2,6 @@
 
 Magyar nyelvű, Kindle-barát OPDS proxy. A Calibre / Calibre-Web OPDS katalógusát egyszerű, e-ink-re optimalizált weboldallá alakítja, így a **Kindle beépített böngészőjéből** közvetlenül böngészhetsz, kereshetsz és tölthetsz le könyveket.
 
-Az [evan-buss/opds-proxy](https://github.com/evan-buss/opds-proxy) ötletére épül, saját kóddal és több funkcióval.
-
 ## Funkciók
 
 - **Magyar felület**, a Calibre-Web angol menüpontjait is magyarra fordítja (Népszerű könyvek, Szerzők, Sorozatok…)
