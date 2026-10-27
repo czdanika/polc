@@ -66,13 +66,50 @@ class Converter:
         h = hashlib.sha256(key.encode()).hexdigest()[:24]
         return self.dir / f"{h}.{ext}"
 
-    async def convert(self, src: Path, dst: Path) -> None:
+    @staticmethod
+    def meta_args(cover: Path | None, title: str | None, authors: str | None,
+                  series: str | None, index: str | None) -> list[str]:
+        """Borító és metaadat beégetése (a Kindle a fájlba ágyazott borítót mutatja)."""
+        args: list[str] = []
+        if cover and cover.exists() and cover.stat().st_size > 0:
+            args += ["--cover", str(cover)]
+        if title:
+            args += ["--title", title]
+        if authors:
+            args += ["--authors", authors.replace(", ", " & ")]
+        if series:
+            args += ["--series", series]
+            if index:
+                args += ["--series-index", index]
+        return args
+
+    async def _run(self, cmd: list[str]) -> bytes:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        try:
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=self.s.convert_timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            raise RuntimeError("A feldolgozás túl sokáig tartott.")
+        if proc.returncode != 0:
+            raise RuntimeError("Sikertelen feldolgozás. " + (out or b"").decode(errors="replace")[-400:])
+        return out
+
+    async def embed_meta(self, book: Path, extra: list[str]) -> None:
+        """EPUB-ba ágyazza a borítót (e-mailes küldéshez), ebook-meta-val."""
+        tool = shutil.which(str(Path(self.s.ebook_convert).with_name("ebook-meta"))) or shutil.which("ebook-meta")
+        if not tool or not extra:
+            return
+        async with self.lock:
+            await self._run([tool, str(book), *extra])
+
+    async def convert(self, src: Path, dst: Path, extra: list[str] | None = None) -> None:
         async with self.lock:
             if dst.exists():
                 return
             tmp = dst.with_suffix(".tmp" + dst.suffix)
             proc = await asyncio.create_subprocess_exec(
-                self.s.ebook_convert, str(src), str(tmp),
+                self.s.ebook_convert, str(src), str(tmp), *(extra or []),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
             try:

@@ -121,3 +121,33 @@ def test_send_mail(client, monkeypatch):
 
 def test_ascii_name():
     assert ascii_name("Őszi éjjel izzik a galagonya / Ady") == "Oszi ejjel izzik a galagonya Ady"
+
+
+@pytest.mark.skipif(not shutil.which("ebook-meta"), reason="Calibre nincs telepítve")
+def test_azw3_has_cover_and_meta(client, tmp_path):
+    import subprocess
+    login(client)
+    r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-3"})
+    import re, html
+    url = html.unescape(re.search(r'href="(/letolt/0\?[^"]*k=azw3[^"]*)"', r.text).group(1)) if "k=azw3" in r.text else None
+    if url is None:  # az Alapítványnak van AZW3-ja, ezért az Egri csillagokat konvertáljuk
+        r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-0"})
+        url = html.unescape(re.search(r'href="(/letolt/0\?[^"]*k=azw3[^"]*)"', r.text).group(1))
+    out = tmp_path / "k.azw3"
+    out.write_bytes(client.get(url).content)
+    cov = tmp_path / "c.jpg"
+    meta = subprocess.run(["ebook-meta", str(out), f"--get-cover={cov}"], capture_output=True, text=True).stdout
+    assert cov.exists() and cov.stat().st_size > 1000
+    assert "Egri csillagok" in meta and "Gárdonyi Géza" in meta
+
+
+@pytest.mark.skipif(not shutil.which("ebook-meta"), reason="Calibre nincs telepítve")
+def test_mail_epub_has_cover(client, monkeypatch):
+    import io, zipfile
+    sent = {}
+    monkeypatch.setattr("app.main.send_mail", lambda s, to, fn, data, mime: sent.update(data=data))
+    login(client)
+    client.post("/beallitasok", data={"kindle": "teszt@kindle.com", "nezet": "lista"})
+    client.post("/kuldes/0", data={"p": "/opds/download/0/epub/", "id": "urn:uuid:book-0", "lista": "/opds/new"})
+    names = zipfile.ZipFile(io.BytesIO(sent["data"])).namelist()
+    assert any("cover" in n.lower() and n.lower().endswith((".jpg", ".jpeg")) for n in names), names

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
@@ -70,6 +70,13 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         params = {"p": a.path if a else "", "e": ext, "n": dl_name(e)}
         if convert:
             params["k"] = convert
+            params.update({"t": e.title, "a": e.author_str})
+            if e.cover:
+                params["c"] = e.cover
+            if e.series:
+                params["s"] = e.series
+                if e.series_index:
+                    params["i"] = e.series_index
         return f"/letolt/{fid}?" + urlencode(params)
 
     def dl_name(e: Entry) -> str:
@@ -248,8 +255,24 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             raise
         return tmp
 
+    async def fetch_cover(feed: Feed, path: str | None, auth) -> Path | None:
+        if not path:
+            return None
+        try:
+            data, _ = await client.get(feed, path, auth, cache=False)
+        except (UpstreamError, NeedLogin):
+            return None
+        if len(data) < 100:
+            return None
+        fd, name = tempfile.mkstemp(suffix=".jpg", dir=s.data_dir)
+        with open(fd, "wb") as fh:
+            fh.write(data)
+        return Path(name)
+
     @app.get("/letolt/{fid}")
-    async def download(request: Request, fid: int, p: str, e: str = "epub", n: str = "konyv", k: str | None = None):
+    async def download(request: Request, fid: int, p: str, e: str = "epub", n: str = "konyv", k: str | None = None,
+                       c: str | None = None, t: str | None = None, a: str | None = None,
+                       s_: str | None = Query(None, alias="s"), i: str | None = None):
         feed = get_feed(fid)
         if not feed or not p:
             return message(request, "Hiba", "Hiányzó letöltési cím.", 400, "/")
@@ -258,13 +281,17 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         name = ascii_name(n)
         try:
             if k == "azw3" and conv.available:
-                out = conv.cached(f"{feed.origin}{p}", "azw3")
+                out = conv.cached(f"v2|{feed.origin}{p}|{c}|{t}", "azw3")
                 if not out.exists():
                     src = await fetch_to_file(feed, p, auth, ext)
+                    cov = await fetch_cover(feed, c, auth)
                     try:
-                        await conv.convert(src, out)
+                        await conv.convert(src, out, ["--output-profile", s.convert_profile, "--toc-title", "Tartalom"]
+                                           + conv.meta_args(cov, t, a, s_, i))
                     finally:
                         src.unlink(missing_ok=True)
+                        if cov:
+                            cov.unlink(missing_ok=True)
                 return FileResponse(out, media_type=MIME["azw3"], headers=disposition(f"{name}.azw3"))
             src = await fetch_to_file(feed, p, auth, ext)
         except NeedLogin:
@@ -297,6 +324,23 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             data, _ = await client.get(feed, acq.path, auth, cache=False)
             if len(data) > 49 * 1024 * 1024:
                 return message(request, "Túl nagy fájl", "Az Amazon legfeljebb 50 MB-os mellékletet fogad.", 400, back)
+            if acq.ext == "epub" and conv.available:
+                # borító + metaadat beágyazása, hogy a Kindle könyvtárában is legyen borító
+                fd, name = tempfile.mkstemp(suffix=".epub", dir=s.data_dir)
+                book_tmp = Path(name)
+                with open(fd, "wb") as fh:
+                    fh.write(data)
+                cov = await fetch_cover(feed, entry.cover, auth)
+                try:
+                    await conv.embed_meta(book_tmp, conv.meta_args(cov, entry.title, entry.author_str,
+                                                                   entry.series, entry.series_index))
+                    data = book_tmp.read_bytes()
+                except RuntimeError:
+                    pass  # ha nem sikerül, az eredeti fájlt küldjük
+                finally:
+                    book_tmp.unlink(missing_ok=True)
+                    if cov:
+                        cov.unlink(missing_ok=True)
             await asyncio.to_thread(send_mail, s, to, f"{dl_name(entry)}.{acq.ext}", data, acq.mime)
         except NeedLogin:
             return to_login(fid, back)

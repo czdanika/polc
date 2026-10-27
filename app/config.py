@@ -43,6 +43,7 @@ class Settings:
     convert_enabled: bool = True
     ebook_convert: str = "ebook-convert"
     convert_timeout: int = 300
+    convert_profile: str = "kindle_pw3"
     cover_grayscale: bool = True
     default_view: str = "lista"
     cache_ttl: int = 120
@@ -103,6 +104,7 @@ def load_settings() -> Settings:
         convert_enabled=_bool("CONVERT_ENABLED", True),
         ebook_convert=os.environ.get("EBOOK_CONVERT", "ebook-convert"),
         convert_timeout=int(os.environ.get("CONVERT_TIMEOUT", "300")),
+        convert_profile=os.environ.get("CONVERT_PROFILE", "kindle_pw3"),
         cover_grayscale=_bool("COVER_GRAYSCALE", True),
         default_view=view if view in ("lista", "racs", "tomor") else "lista",
         cache_ttl=int(os.environ.get("CACHE_TTL", "120")),

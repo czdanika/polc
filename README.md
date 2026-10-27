@@ -10,8 +10,8 @@ Az [evan-buss/opds-proxy](https://github.com/evan-buss/opds-proxy) ötletére é
 - **Három nézet:** Lista (borító + adatok + gyors letöltés), Borítók (rács), Tömör (csak szöveg, leggyorsabb e-inken). A választást megjegyzi.
 - **Keresés** minden oldalon (OpenSearch alapján)
 - **Könyv adatlap:** borító, szerző, sorozat és sorszám, kiadó, nyelv, címkék, formátumok és méret, leírás
-- **Letöltés Kindle-re:** EPUB → **AZW3** konverzió Calibre `ebook-convert`-tel (szebb, mint a régi MOBI). Ha a könyvtárban már van AZW3/MOBI, azt adja.
-- **Küldés Kindle-re e-mailben** (Amazon Send-to-Kindle): EPUB-ot küld, felhőbe szinkronizál
+- **Letöltés Kindle-re:** EPUB → **AZW3** konverzió Calibre `ebook-convert`-tel (szebb, mint a régi MOBI), **beágyazott borítóval**, címmel, szerzővel és sorozattal, így a Kindle könyvtárában is látszik a borító. Ha a könyvtárban már van AZW3/MOBI, azt adja.
+- **Küldés Kindle-re e-mailben** (Amazon Send-to-Kindle): EPUB-ot küld beágyazott borítóval, felhőbe szinkronizál
 - **Ékezetmentes fájlnevek** (a Kindle böngészője nem szereti az ékezetes neveket)
 - **Szürkeárnyalatos, átméretezett borítók** gyorsítótárazva, így gyorsabban tölt az e-inken
 - **Belépés** egyszer, titkosított sütiben megjegyezve; vagy előre beállított felhasználó a stackben
@@ -47,6 +47,7 @@ Kindle méretben (600×800), teszt-könyvtárral:
 | `DEFAULT_VIEW` | lista | `lista`, `racs` vagy `tomor` |
 | `CONVERT_ENABLED` | true | EPUB → AZW3 konverzió |
 | `CONVERT_TIMEOUT` | 300 | Konverzió időkorlátja (mp) |
+| `CONVERT_PROFILE` | kindle_pw3 | Calibre kimeneti profil (pl. `kindle`, `kindle_oasis`, `kindle_scribe`) |
 | `COVER_GRAYSCALE` | true | Szürkeárnyalatos borítók |
 | `CACHE_TTL` | 120 | Katalógus-gyorsítótár (mp) |
 | `SECRET_KEY` | automatikus | Süti-titkosítás kulcsa. Ha üres, a `/data/secret.key`-be generálja. |
