@@ -25,6 +25,10 @@ Kindle méretben (600×800), teszt-könyvtárral:
 | **Tömör nézet** | **Könyv adatlap** | **Szerzők** |
 | ![Tömör](docs/kepernyokepek/5_tomor.png) | ![Könyv](docs/kepernyokepek/6_konyv.png) | ![Szerzők](docs/kepernyokepek/7_szerzok.png) |
 
+## Telepítés
+
+Példa Docker Compose / Portainer stack: [`docker-compose.example.yml`](docker-compose.example.yml). Írd át benne a `FEED_URL`-t, majd `docker compose up -d`.
+
 ## Beállítások (környezeti változók)
 
 | Változó | Alapérték | Leírás |

@@ -1,0 +1,53 @@
+# Polc – példa telepítés (Docker Compose / Portainer stack)
+#
+# Használat:
+#   1. Másold le docker-compose.yml néven (Portainerben: Stacks → Add stack → Web editor)
+#   2. Írd át a FEED_URL-t a saját Calibre / Calibre-Web OPDS címedre
+#   3. docker compose up -d
+#   4. Kindle böngészőben: http://<szerver-ip>:18100
+
+services:
+  polc:
+    image: ghcr.io/czdanika/polc:latest
+    container_name: polc
+    restart: unless-stopped
+    ports:
+      - "18100:8080"            # külső port : belső port (PORT)
+    volumes:
+      - polc-data:/data         # konvertált könyvek, borító-gyorsítótár, titkosító kulcs
+    environment:
+      # --- Könyvtár (kötelező) ---
+      - FEED_NAME=Calibre
+      - FEED_URL=http://192.168.1.10:8083/opds    # Calibre-Web: /opds, Calibre szerver: /opds
+
+      # Ha megadod, a Kindle-en nem kell belépni.
+      # Csak otthoni hálózaton használd így, interneten át elérhető példánynál hagyd üresen!
+      # - FEED_USERNAME=kindle
+      # - FEED_PASSWORD=jelszo
+
+      # --- Általános ---
+      - TITLE=Polc
+      - PORT=8080
+      - DEFAULT_VIEW=lista      # lista | racs | tomor
+      - COVER_GRAYSCALE=true
+
+      # --- Kindle konverzió (EPUB -> AZW3, beágyazott borítóval) ---
+      - CONVERT_ENABLED=true
+      - CONVERT_PROFILE=kindle_pw3   # kindle | kindle_pw3 | kindle_oasis | kindle_scribe ...
+
+      # --- Küldés Kindle-re e-mailben (opcionális) ---
+      # Az SMTP_FROM címet az Amazon fiókban fel kell venni a jóváhagyott feladók közé.
+      # - SMTP_HOST=smtp.gmail.com
+      # - SMTP_PORT=587
+      # - SMTP_SECURITY=starttls     # starttls | ssl | none
+      # - SMTP_USER=valaki@gmail.com
+      # - SMTP_PASSWORD=alkalmazas-jelszo
+      # - SMTP_FROM=valaki@gmail.com
+      # - KINDLE_EMAIL=valaki_123@kindle.com
+
+      # --- További könyvtárak (opcionális, FEED_2_ ... FEED_9_) ---
+      # - FEED_2_NAME=Másik könyvtár
+      # - FEED_2_URL=http://192.168.1.11:8083/opds
+
+volumes:
+  polc-data:
