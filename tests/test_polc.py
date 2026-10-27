@@ -138,6 +138,8 @@ def test_azw3_has_cover_and_meta(client, tmp_path):
     cov = tmp_path / "c.jpg"
     meta = subprocess.run(["ebook-meta", str(out), f"--get-cover={cov}"], capture_output=True, text=True).stdout
     assert cov.exists() and cov.stat().st_size > 1000
+    data = out.read_bytes()
+    assert b"EBOK" not in data  # személyes dokumentum: a Kindle a beágyazott borítót használja
     assert "Egri csillagok" in meta and "Gárdonyi Géza" in meta
 
 

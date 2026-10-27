@@ -281,12 +281,15 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         name = ascii_name(n)
         try:
             if k == "azw3" and conv.available:
-                out = conv.cached(f"v2|{feed.origin}{p}|{c}|{t}", "azw3")
+                out = conv.cached(f"v3|{feed.origin}{p}|{c}|{t}", "azw3")
                 if not out.exists():
                     src = await fetch_to_file(feed, p, auth, ext)
                     cov = await fetch_cover(feed, c, auth)
                     try:
-                        await conv.convert(src, out, ["--output-profile", s.convert_profile, "--toc-title", "Tartalom"]
+                        await conv.convert(src, out, ["--output-profile", s.convert_profile, "--toc-title", "Tartalom",
+                                            # nincs ál-ASIN/EBOK: a Kindle így a beágyazott borítót mutatja
+                                            # (EBOK esetén az Amazontól próbálja letölteni, és üres marad)
+                                            "--share-not-sync"]
                                            + conv.meta_args(cov, t, a, s_, i))
                     finally:
                         src.unlink(missing_ok=True)
