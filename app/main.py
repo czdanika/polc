@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,7 +16,8 @@ from starlette.background import BackgroundTask
 from . import __version__
 from .config import Feed, Settings, load_settings
 from .opds import Client, Entry, NeedLogin, UpstreamError, search_path
-from .services import KINDLE_OK, Converter, Covers, Vault, ascii_name, kindle_personal_doc, send_mail
+from .services import (KINDLE_OK, Converter, Covers, Vault, ascii_name, kindle_personal_doc, secret_fingerprint,
+                       send_mail, verify_password)
 
 BASE = Path(__file__).parent
 COOKIE = "polc"
@@ -118,8 +120,24 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         v = request.query_params.get("nezet") or request.cookies.get(VIEW_COOKIE) or s.default_view
         return v if v in VIEWS else s.default_view
 
+    def current_user(request: Request):
+        """Bejelentkezett Polc-felhasználó (csak ha USERS be van állítva)."""
+        if not s.users:
+            return None
+        sess = session(request)
+        u = s.users.get(str(sess.get("u", "")).lower())
+        if u and sess.get("uv") == secret_fingerprint(u.secret):
+            return u
+        return None
+
     def kindle_email(request: Request) -> str | None:
-        return session(request).get("kindle") or s.kindle_email
+        u = current_user(request)
+        return session(request).get("kindle") or (u.kindle if u else None) or s.kindle_email
+
+    def save_session(request: Request, resp: Response, sess: dict) -> Response:
+        resp.set_cookie(COOKIE, vault.dump(sess), max_age=YEAR, httponly=True, samesite="lax",
+                        secure=request.url.scheme == "https")
+        return resp
 
     def render(request: Request, name: str, status: int = 200, **ctx) -> HTMLResponse:
         base = {
@@ -134,6 +152,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             "kindle_choice": kindle_choice,
             "mail_choice": mail_choice,
             "kindle_email": kindle_email(request),
+            "user": current_user(request),
             "version": __version__,
             "here": str(request.url.path) + (f"?{request.url.query}" if request.url.query else ""),
         }
@@ -150,6 +169,59 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
 
     def to_login(fid: int, nxt: str) -> RedirectResponse:
         return RedirectResponse(f"/belepes/{fid}?" + urlencode({"vissza": nxt}), status_code=303)
+
+    # ------------------------------------------------------------ Polc-felhasználók
+
+    PUBLIC = ("/bejelentkezes", "/egeszseg")
+    failures: dict[str, list[float]] = {}
+
+    @app.middleware("http")
+    async def require_user(request: Request, call_next):
+        if s.users and not request.url.path.startswith(PUBLIC) and not current_user(request):
+            nxt = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+            if request.method != "GET":
+                nxt = "/"
+            return RedirectResponse("/bejelentkezes?" + urlencode({"vissza": nxt}), status_code=303)
+        return await call_next(request)
+
+    def client_ip(request: Request) -> str:
+        return (request.headers.get("cf-connecting-ip")
+                or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                or (request.client.host if request.client else "?"))
+
+    def blocked(ip: str) -> bool:
+        now = time.time()
+        recent = [t for t in failures.get(ip, []) if now - t < 600]
+        failures[ip] = recent
+        return len(recent) >= 5
+
+    @app.get("/bejelentkezes", response_class=HTMLResponse)
+    async def user_login_form(request: Request, vissza: str = "/"):
+        if not s.users or current_user(request):
+            return RedirectResponse("/", status_code=303)
+        return render(request, "user_login.html", vissza=vissza, error=None)
+
+    @app.post("/bejelentkezes", response_class=HTMLResponse)
+    async def user_login(request: Request, felhasznalo: str = Form(""), jelszo: str = Form(""),
+                         vissza: str = Form("/")):
+        if not s.users:
+            return RedirectResponse("/", status_code=303)
+        if not vissza.startswith("/") or vissza.startswith("//"):
+            vissza = "/"
+        ip = client_ip(request)
+        if blocked(ip):
+            return render(request, "user_login.html", 429, vissza=vissza,
+                          error="Túl sok sikertelen próbálkozás. Próbáld újra 10 perc múlva.")
+        u = s.users.get(felhasznalo.strip().lower())
+        if not u or not await asyncio.to_thread(verify_password, jelszo, u.secret):
+            failures.setdefault(ip, []).append(time.time())
+            await asyncio.sleep(1)
+            return render(request, "user_login.html", 401, vissza=vissza,
+                          error="Hibás felhasználónév vagy jelszó.")
+        failures.pop(ip, None)
+        sess = session(request)
+        sess.update({"u": u.name.lower(), "uv": secret_fingerprint(u.secret)})
+        return save_session(request, RedirectResponse(vissza, status_code=303), sess)
 
     # ------------------------------------------------------------ oldalak
 
@@ -385,23 +457,20 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             return render(request, "login.html", 502, feed=feed, vissza=vissza, error=str(e))
         sess = session(request)
         sess.setdefault("a", {})[str(fid)] = list(auth)
-        resp = RedirectResponse(vissza, status_code=303)
-        resp.set_cookie(COOKIE, vault.dump(sess), max_age=YEAR, httponly=True, samesite="lax")
-        return resp
+        return save_session(request, RedirectResponse(vissza, status_code=303), sess)
 
     @app.get("/kilepes")
     async def logout(request: Request):
         sess = session(request)
-        sess.pop("a", None)
-        resp = RedirectResponse("/", status_code=303)
-        resp.set_cookie(COOKIE, vault.dump(sess), max_age=YEAR, httponly=True, samesite="lax")
-        return resp
+        for k in ("a", "u", "uv"):
+            sess.pop(k, None)
+        return save_session(request, RedirectResponse("/", status_code=303), sess)
 
     @app.get("/beallitasok", response_class=HTMLResponse)
     async def settings_page(request: Request):
         sess = session(request)
         return render(request, "settings.html", own_email=sess.get("kindle", ""),
-                      logged_in=bool(sess.get("a")), can_mail=s.mail_enabled, can_convert=conv.available,
+                      logged_in=bool(sess.get("a")) or bool(current_user(request)), can_mail=s.mail_enabled, can_convert=conv.available,
                       saved=request.query_params.get("mentve"))
 
     @app.post("/beallitasok")
@@ -412,8 +481,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             sess["kindle"] = kindle
         else:
             sess.pop("kindle", None)
-        resp = RedirectResponse("/beallitasok?mentve=1", status_code=303)
-        resp.set_cookie(COOKIE, vault.dump(sess), max_age=YEAR, httponly=True, samesite="lax")
+        resp = save_session(request, RedirectResponse("/beallitasok?mentve=1", status_code=303), sess)
         if nezet in VIEWS:
             resp.set_cookie(VIEW_COOKIE, nezet, max_age=YEAR, samesite="lax")
         return resp
@@ -421,7 +489,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
     @app.get("/egeszseg")
     async def health():
         return {"ok": True, "verzio": __version__, "konyvtarak": len(s.feeds), "konverzio": conv.available,
-                "email": s.mail_enabled}
+                "email": s.mail_enabled, "felhasznalok": len(s.users)}
 
     return app
 

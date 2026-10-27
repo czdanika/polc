@@ -12,7 +12,8 @@ Magyar nyelvű, Kindle-barát OPDS proxy. A Calibre / Calibre-Web OPDS katalógu
 - **Küldés Kindle-re e-mailben** (Amazon Send-to-Kindle): EPUB-ot küld beágyazott borítóval, felhőbe szinkronizál
 - **Ékezetmentes fájlnevek** (a Kindle böngészője nem szereti az ékezetes neveket)
 - **Szürkeárnyalatos, átméretezett borítók** gyorsítótárazva, így gyorsabban tölt az e-inken
-- **Belépés** egyszer, titkosított sütiben megjegyezve; vagy előre beállított felhasználó a stackben
+- **Saját felhasználók:** a Polcba külön felhasználókkal lehet belépni (`USERS`), a Calibre-fiók pedig csak a szerveren van (`FEED_USERNAME`/`FEED_PASSWORD`). Felhasználónként saját Kindle e-mail cím, jelszó-hash, brute-force védelem.
+- **Belépés** egyszer, titkosított sütiben megjegyezve
 - Nincs flexbox és nincs JavaScript, így régi Kindle böngészőn is működik
 
 ## Képernyőképek
@@ -48,6 +49,26 @@ Példa Docker Compose / Portainer stack: [`docker-compose.example.yml`](docker-c
 | `SECRET_KEY` | automatikus | Süti-titkosítás kulcsa. Ha üres, a `/data/secret.key`-be generálja. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | – | E-mail küldés (`SMTP_SECURITY`: `starttls`, `ssl` vagy `none`) |
 | `KINDLE_EMAIL` | – | Alapértelmezett Kindle cím (a Beállítások oldalon felülírható) |
+| `USERS` | – | Polc-felhasználók: `nev:jelszo[:kindle@kindle.com]`, vesszővel elválasztva. Ha meg van adva, minden oldalhoz belépés kell. |
+| `USERS_FILE` | – | Ugyanez fájlból, soronként egy felhasználó |
+
+### Saját felhasználók
+
+Ha a `USERS` meg van adva, a Polcba a saját felhasználóiddal lehet belépni, a Calibre-fiókot pedig csak a szerver ismeri:
+
+```env
+FEED_USERNAME=calibre-fiok
+FEED_PASSWORD=calibre-jelszo
+USERS=daniel:pbkdf2-260000-...:daniel@kindle.com,orsi:pbkdf2-260000-...
+```
+
+Jelszó-hash készítése (sima jelszó is működik, de a hash ajánlott):
+
+```bash
+docker exec -it polc python -m app.jelszo
+```
+
+Öt sikertelen próbálkozás után az adott IP-cím 10 percre kizárásra kerül. Jelszócsere után a felhasználó régi munkamenetei érvénytelenné válnak.
 
 ### Küldés Kindle-re e-mailben
 

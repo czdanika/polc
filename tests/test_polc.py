@@ -174,3 +174,78 @@ def test_existing_azw3_becomes_personal_doc(tmp_path):
     subprocess.run(["ebook-meta", str(azw), f"--get-cover={got}"], capture_output=True)
     assert got.exists() and got.stat().st_size > 1000
     assert not kindle_personal_doc(azw)  # másodszor már nincs mit javítani
+
+
+# ---------------------------------------------------------------- Polc-felhasználók
+
+from app.config import User  # noqa: E402
+from app.services import hash_password  # noqa: E402
+
+
+def users_app(tmp_path, users):
+    s = Settings(feeds=[Feed(0, "Calibre", "http://calibre.local/opds", "kindle", "titok")], data_dir=tmp_path,
+                 secret_key="teszt", smtp_host="smtp.local", smtp_from="polc@example.com", users=users)
+    return TestClient(create_app(s, transport=httpx.ASGITransport(app=mock_calibre.app)))
+
+
+USERS = {"daniel": User("Daniel", hash_password("dani123"), "daniel@kindle.com"),
+         "orsi": User("orsi", "orsi456")}
+
+
+def test_users_gate_and_shared_calibre_login(tmp_path):
+    with users_app(tmp_path, USERS) as c:
+        r = c.get("/k/0?p=%2Fopds", follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"].startswith("/bejelentkezes")
+        assert c.get("/borito/0", params={"p": "/opds/cover/1"}, follow_redirects=False).status_code == 303
+        assert c.get("/egeszseg").json()["felhasznalok"] == 2
+        r = c.post("/bejelentkezes", data={"felhasznalo": "DANIEL", "jelszo": "dani123", "vissza": "/k/0?p=%2Fopds"},
+                   follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/k/0?p=%2Fopds"
+        r = c.get("/k/0?p=%2Fopds")  # Calibre-belépés nélkül, az env-ben megadott fiókkal
+        assert "Népszerű könyvek" in r.text
+        assert "Bejelentkezve: <b>Daniel</b>" in c.get("/beallitasok").text
+        c.get("/kilepes")
+        assert c.get("/k/0?p=%2Fopds", follow_redirects=False).status_code == 303
+
+
+def test_users_plain_password_and_wrong(tmp_path):
+    with users_app(tmp_path, USERS) as c:
+        assert c.post("/bejelentkezes", data={"felhasznalo": "orsi", "jelszo": "rossz"}).status_code == 401
+        r = c.post("/bejelentkezes", data={"felhasznalo": "orsi", "jelszo": "orsi456"}, follow_redirects=False)
+        assert r.status_code == 303
+
+
+def test_users_bruteforce_lockout(tmp_path, monkeypatch):
+    async def nosleep(_):
+        return None
+    monkeypatch.setattr("app.main.asyncio.sleep", nosleep)
+    with users_app(tmp_path, USERS) as c:
+        for _ in range(5):
+            c.post("/bejelentkezes", data={"felhasznalo": "daniel", "jelszo": "x"})
+        r = c.post("/bejelentkezes", data={"felhasznalo": "daniel", "jelszo": "dani123"})
+        assert r.status_code == 429
+
+
+def test_users_password_change_invalidates_session(tmp_path):
+    with users_app(tmp_path, USERS) as c:
+        c.post("/bejelentkezes", data={"felhasznalo": "orsi", "jelszo": "orsi456"})
+        cookie = c.cookies.get("polc")
+    changed = {"orsi": User("orsi", "ujjelszo")}
+    with users_app(tmp_path, changed) as c2:
+        c2.cookies.set("polc", cookie)
+        assert c2.get("/k/0?p=%2Fopds", follow_redirects=False).status_code == 303
+
+
+def test_users_kindle_email_per_user(tmp_path, monkeypatch):
+    sent = {}
+    monkeypatch.setattr("app.main.send_mail", lambda s, to, fn, data, mime: sent.update(to=to))
+    with users_app(tmp_path, USERS) as c:
+        c.post("/bejelentkezes", data={"felhasznalo": "daniel", "jelszo": "dani123"})
+        c.post("/kuldes/0", data={"p": "/opds/download/0/epub/", "id": "urn:uuid:book-0", "lista": "/opds/new"})
+    assert sent["to"] == "daniel@kindle.com"
+
+
+def test_parse_users_formats():
+    from app.config import _parse_users
+    u = _parse_users("a:1:a@kindle.com, b:2\n# komment\nc:3;")
+    assert set(u) == {"a", "b", "c"} and u["a"].kindle == "a@kindle.com" and u["b"].kindle is None

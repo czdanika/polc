@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,6 +36,13 @@ class Feed:
 
 
 @dataclass
+class User:
+    name: str
+    secret: str  # sima jelszó vagy pbkdf2-... hash (python -m app.jelszo)
+    kindle: str | None = None
+
+
+@dataclass
 class Settings:
     title: str = "Polc"
     feeds: list[Feed] = field(default_factory=list)
@@ -54,6 +62,7 @@ class Settings:
     smtp_from: str | None = None
     smtp_security: str = "starttls"  # starttls | ssl | none
     kindle_email: str | None = None
+    users: dict[str, User] = field(default_factory=dict)
 
     @property
     def mail_enabled(self) -> bool:
@@ -78,6 +87,29 @@ def _load_feeds() -> list[Feed]:
             )
         )
     return feeds
+
+
+def _parse_users(text: str) -> dict[str, User]:
+    """Formátum: nev:jelszo[:kindle@kindle.com] – vesszővel, pontosvesszővel vagy soronként elválasztva."""
+    users: dict[str, User] = {}
+    for raw in re.split(r"[,;\n]", text or ""):
+        line = raw.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        parts = line.split(":")
+        name, secret = parts[0].strip(), parts[1].strip()
+        kindle = parts[2].strip() if len(parts) > 2 and parts[2].strip() else None
+        if name and secret:
+            users[name.lower()] = User(name, secret, kindle)
+    return users
+
+
+def _load_users() -> dict[str, User]:
+    users = _parse_users(os.environ.get("USERS", ""))
+    path = os.environ.get("USERS_FILE")
+    if path and Path(path).exists():
+        users.update(_parse_users(Path(path).read_text(encoding="utf-8")))
+    return users
 
 
 def load_settings() -> Settings:
@@ -115,4 +147,5 @@ def load_settings() -> Settings:
         smtp_from=os.environ.get("SMTP_FROM") or None,
         smtp_security=(os.environ.get("SMTP_SECURITY") or "starttls").lower(),
         kindle_email=os.environ.get("KINDLE_EMAIL") or None,
+        users=_load_users(),
     )

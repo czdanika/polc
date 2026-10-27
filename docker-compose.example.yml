@@ -13,6 +13,9 @@ services:
     restart: unless-stopped
     ports:
       - "18100:8080"            # külső port : belső port (PORT)
+    # Titkok külön fájlban (Portainerben: Environment variables → env_file: stack.env)
+    # env_file:
+    #   - polc.env
     volumes:
       - polc-data:/data         # konvertált könyvek, borító-gyorsítótár, titkosító kulcs
     environment:
@@ -20,10 +23,14 @@ services:
       - FEED_NAME=Calibre
       - FEED_URL=http://192.168.1.10:8083/opds    # Calibre-Web: /opds, Calibre szerver: /opds
 
-      # Ha megadod, a Kindle-en nem kell belépni.
-      # Csak otthoni hálózaton használd így, interneten át elérhető példánynál hagyd üresen!
+      # Calibre-fiók: ha megadod, a Calibre-jelszót csak a szerver ismeri.
+      # Interneten át elérhető példánynál ilyenkor add meg a USERS-t is (lent)!
       # - FEED_USERNAME=kindle
       # - FEED_PASSWORD=jelszo
+
+      # --- Saját Polc-felhasználók (opcionális) ---
+      # nev:jelszo[:kindle@kindle.com], vesszővel elválasztva. Hash: docker exec -it polc python -m app.jelszo
+      # - USERS=daniel:pbkdf2-260000-...:daniel@kindle.com,orsi:pbkdf2-260000-...
 
       # --- Általános ---
       - TITLE=Polc

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% set no_search = true %}
+{% block title %}Bejelentkezés{% endblock %}
+{% block content %}
+<h1>Bejelentkezés</h1>
+<p class="muted">Lépj be a {{ title }} felhasználóddal. Ezen az eszközön megjegyzi, nem kell újra megadnod.</p>
+{% if error %}<div class="box"><b>{{ error }}</b></div>{% endif %}
+<form method="post" action="/bejelentkezes">
+  <input type="hidden" name="vissza" value="{{ vissza }}">
+  <label for="u">Felhasználónév</label>
+  <input class="mezo" id="u" type="text" name="felhasznalo" autocapitalize="off" autocorrect="off" autocomplete="username">
+  <label for="j">Jelszó</label>
+  <input class="mezo" id="j" type="password" name="jelszo" autocomplete="current-password">
+  <p><button class="btn fo" type="submit">Belépés</button></p>
+</form>
+{% endblock %}

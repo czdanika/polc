@@ -239,3 +239,33 @@ def kindle_personal_doc(path: Path) -> bool:
     if changed:
         path.write_bytes(bytes(data))
     return changed
+
+
+# ---------------------------------------------------------------- jelszavak
+
+PBKDF2_ITER = 260_000
+
+
+def hash_password(password: str, salt: bytes | None = None, iterations: int = PBKDF2_ITER) -> str:
+    """pbkdf2-<iter>-<só hex>-<hash hex> (nincs benne $ vagy :, így env fájlban is biztonságos)."""
+    import os as _os
+    salt = salt or _os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
+    return f"pbkdf2-{iterations}-{salt.hex()}-{dk.hex()}"
+
+
+def verify_password(password: str, secret: str) -> bool:
+    import hmac
+    if secret.startswith("pbkdf2-"):
+        try:
+            _, it, salt, want = secret.split("-", 3)
+            dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), int(it))
+        except ValueError:
+            return False
+        return hmac.compare_digest(dk.hex(), want)
+    return hmac.compare_digest(password.encode(), secret.encode())
+
+
+def secret_fingerprint(secret: str) -> str:
+    """Rövid ujjlenyomat: jelszócsere után a régi munkamenetek érvénytelenek."""
+    return hashlib.sha256(("polc|" + secret).encode()).hexdigest()[:16]
