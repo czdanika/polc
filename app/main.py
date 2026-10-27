@@ -25,7 +25,7 @@ VIEW_COOKIE = "polc_nezet"
 YEAR = 60 * 60 * 24 * 365
 VIEWS = {"lista": "Lista", "racs": "Borítók", "tomor": "Tömör"}
 DEVICE_COOKIE = "polc_eszkoz"
-DEVICES = {"uj": "Új Kindle (2012 után, AZW3)", "regi": "Régi Kindle (csak MOBI)"}
+DEVICES = {"uj": "Új Kindle (AZW3)", "regi": "Régebbi Kindle (csak MOBI)"}
 CONVERT_SOURCES = ("epub", "azw3", "fb2", "docx", "rtf", "htm", "html", "kepub")
 # Kindle 1/2/DX és Kindle Keyboard: "Kindle/1.0", "Kindle/2.0", "Kindle/3.0" (a "+" nélküli 3.0)
 OLD_KINDLE_UA = __import__("re").compile(r"Kindle/(?:[12]\.\d|3\.0(?!\+))")
@@ -134,6 +134,8 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
 
     def device_of(request: Request) -> str:
         d = request.cookies.get(DEVICE_COOKIE)
+        if d == "azw":  # az 1.5.0-ban kipróbált, nem működő mód -> MOBI
+            return "regi"
         if d in DEVICES:
             return d
         return "regi" if OLD_KINDLE_UA.search(request.headers.get("user-agent", "")) else "uj"

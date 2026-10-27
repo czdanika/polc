@@ -294,3 +294,10 @@ def test_old_kindle_gets_mobi6_with_cover(client, tmp_path):
     cov = tmp_path / "c.jpg"
     subprocess.run(["ebook-meta", str(out), f"--get-cover={cov}"], capture_output=True)
     assert cov.exists() and cov.stat().st_size > 1000
+
+
+def test_legacy_azw_cookie_falls_back_to_mobi(client):
+    login(client)
+    client.cookies.set("polc_eszkoz", "azw")
+    r = client.get("/k/0?p=%2Fopds%2Fnew&nezet=lista", headers={"User-Agent": PW_UA})
+    assert "Letöltés (AZW3)" not in r.text and "Letöltés (MOBI)" in r.text
