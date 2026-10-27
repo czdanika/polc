@@ -27,13 +27,6 @@ Kindle méretben (600×800), teszt-könyvtárral:
 | **Tömör nézet** | **Könyv adatlap** | **Szerzők** |
 | ![Tömör](docs/kepernyokepek/5_tomor.png) | ![Könyv](docs/kepernyokepek/6_konyv.png) | ![Szerzők](docs/kepernyokepek/7_szerzok.png) |
 
-## Telepítés (Portainer)
-
-1. Töltsd fel ezt a mappát egy GitHub repóba (pl. `czdanika/polc`). A GitHub Actions lefuttatja a teszteket, és felteszi az image-et a `ghcr.io/czdanika/polc:latest` címre (amd64 + arm64).
-2. Ha a csomag privát: GitHub → Packages → polc → Package settings → *Change visibility: Public*. Ha privát marad, Portainerben add hozzá a ghcr.io registry-t.
-3. Portainerben állítsd le a régi `opds-proxy` stacket, és hozz létre új stacket a `stack.yml` tartalmával.
-4. Kindle-en: `http://192.168.0.100:18100`. Érdemes könyvjelzőzni.
-
 ## Beállítások (környezeti változók)
 
 | Változó | Alapérték | Leírás |
