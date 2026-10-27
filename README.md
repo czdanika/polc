@@ -9,7 +9,7 @@ Magyar nyelvű, Kindle-barát OPDS proxy. A Calibre / Calibre-Web OPDS katalógu
 - **Keresés** minden oldalon (OpenSearch alapján)
 - **Könyv adatlap:** borító, szerző, sorozat és sorszám, kiadó, nyelv, címkék, formátumok és méret, leírás
 - **Letöltés Kindle-re:** EPUB → **AZW3** konverzió Calibre `ebook-convert`-tel (szebb, mint a régi MOBI), **beágyazott borítóval**, címmel, szerzővel és sorozattal, így a Kindle könyvtárában is látszik a borító. Ha a könyvtárban már van AZW3/MOBI, azt adja, de személyes dokumentumra (PDOC) átjelölve, mert a Calibre-féle „bolti” (EBOK) jelölésnél a Kindle nem mutatja a borítót.
-- **Régebbi Kindle-ök:** a régebbi böngészők nem engedik letölteni a `.azw3` fájlt. A Beállításokban eszközönként választható: *Paperwhite 1–3 / Touch* esetén AZW3-at kap `.azw` néven, a nagyon régi készülékek (Keyboard, 1, 2, DX) klasszikus **MOBI**-t (meglévőt, vagy EPUB/AZW3-ból konvertáltat), mindkettőt beágyazott borítóval. (Az új és a régebbi Kindle böngészője ugyanazzal az azonosítóval jelentkezik, ezért ezt kézzel kell beállítani.)
+- **Régi Kindle támogatás:** a régi készülékek (pl. Kindle Keyboard) böngészője csak MOBI-t tölt le. A Polc ezt a böngésző alapján felismeri (a Beállításokban kézzel is átállítható), és ilyenkor a meglévő MOBI-t adja, vagy EPUB/AZW3-ból klasszikus **MOBI**-t konvertál beágyazott borítóval.
 - **Küldés Kindle-re e-mailben** (Amazon Send-to-Kindle): EPUB-ot küld beágyazott borítóval, felhőbe szinkronizál
 - **Ékezetmentes fájlnevek** (a Kindle böngészője nem szereti az ékezetes neveket)
 - **Szürkeárnyalatos, átméretezett borítók** gyorsítótárazva, így gyorsabban tölt az e-inken
