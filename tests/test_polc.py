@@ -249,3 +249,48 @@ def test_parse_users_formats():
     from app.config import _parse_users
     u = _parse_users("a:1:a@kindle.com, b:2\n# komment\nc:3;")
     assert set(u) == {"a", "b", "c"} and u["a"].kindle == "a@kindle.com" and u["b"].kindle is None
+
+
+# ---------------------------------------------------------------- régi Kindle (MOBI)
+
+KEYBOARD_UA = ("Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko, Safari/528.5+) "
+               "Version/4.0 Kindle/3.0 (screen 600x800; rotate)")
+PW_UA = ("Mozilla/5.0 (X11; U; Linux armv7l like Android; en-us) AppleWebKit/531.2+ (KHTML, like Gecko) "
+         "Version/5.0 Safari/533.2+ Kindle/3.0+")
+
+
+def test_old_kindle_detected_by_user_agent(client):
+    login(client)
+    r = client.get("/k/0?p=%2Fopds%2Fnew&nezet=lista", headers={"User-Agent": KEYBOARD_UA})
+    assert "Letöltés (AZW3)" not in r.text and "Letöltés (MOBI)" in r.text  # A Pál utcai fiúk: van MOBI
+    r = client.get("/k/0?p=%2Fopds%2Fnew&nezet=lista", headers={"User-Agent": PW_UA})
+    assert "Letöltés (AZW3)" in r.text
+
+
+def test_device_setting_overrides(client):
+    login(client)
+    client.post("/beallitasok", data={"nezet": "lista", "eszkoz": "regi"})
+    assert client.cookies.get("polc_eszkoz") == "regi"
+    r = client.get("/k/0?p=%2Fopds%2Fnew", headers={"User-Agent": PW_UA})
+    assert "Letöltés (AZW3)" not in r.text
+
+
+@pytest.mark.skipif(not shutil.which("ebook-convert"), reason="Calibre nincs telepítve")
+def test_old_kindle_gets_mobi6_with_cover(client, tmp_path):
+    import html as h, re, struct, subprocess
+    login(client)
+    client.post("/beallitasok", data={"nezet": "lista", "eszkoz": "regi"})
+    r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-0"})  # csak EPUB van
+    assert "Letöltés Kindle-re (MOBI)" in r.text
+    url = h.unescape(re.search(r'href="(/letolt/0\?[^"]*k=mobi[^"]*)"', r.text).group(1))
+    resp = client.get(url)
+    assert resp.headers["content-disposition"].endswith('.mobi"')
+    out = tmp_path / "k.mobi"
+    out.write_bytes(resp.content)
+    data = out.read_bytes()
+    r0 = struct.unpack_from(">I", data, 78)[0]
+    assert data[r0 + 16:r0 + 20] == b"MOBI" and struct.unpack_from(">I", data, r0 + 36)[0] == 6  # MOBI6
+    assert b"EBOK" not in data
+    cov = tmp_path / "c.jpg"
+    subprocess.run(["ebook-meta", str(out), f"--get-cover={cov}"], capture_output=True)
+    assert cov.exists() and cov.stat().st_size > 1000

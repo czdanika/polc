@@ -24,6 +24,11 @@ COOKIE = "polc"
 VIEW_COOKIE = "polc_nezet"
 YEAR = 60 * 60 * 24 * 365
 VIEWS = {"lista": "Lista", "racs": "Borítók", "tomor": "Tömör"}
+DEVICE_COOKIE = "polc_eszkoz"
+DEVICES = {"uj": "Új Kindle (2012 után, AZW3)", "regi": "Régi Kindle (csak MOBI)"}
+CONVERT_SOURCES = ("epub", "azw3", "fb2", "docx", "rtf", "htm", "html", "kepub")
+# Kindle 1/2/DX és Kindle Keyboard: "Kindle/1.0", "Kindle/2.0", "Kindle/3.0" (a "+" nélküli 3.0)
+OLD_KINDLE_UA = __import__("re").compile(r"Kindle/(?:[12]\.\d|3\.0(?!\+))")
 MIME = {
     "azw3": "application/vnd.amazon.ebook",
     "mobi": "application/x-mobipocket-ebook",
@@ -85,8 +90,19 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         who = e.authors[0] if e.authors else ""
         return ascii_name(f"{who} - {e.title}" if who else e.title)
 
-    def kindle_choice(fid: int, e: Entry) -> tuple[str, str] | None:
+    def kindle_choice(fid: int, e: Entry, device: str = "uj") -> tuple[str, str] | None:
         """A legjobb közvetlen Kindle-letöltés: (felirat, url)."""
+        if device == "regi":
+            # régi Kindle böngészője csak .mobi / .azw / .prc / .txt fájlt tölt le, KF8-at (AZW3) nem
+            if e.fmt("mobi"):
+                return "Letöltés (MOBI)", u_dl(fid, e, "mobi")
+            if conv.available:
+                for src in CONVERT_SOURCES:
+                    if e.fmt(src):
+                        return "Letöltés Kindle-re (MOBI)", u_dl(fid, e, src, "mobi")
+            if e.fmt("txt"):
+                return "Letöltés (TXT)", u_dl(fid, e, "txt")
+            return None
         if e.fmt("azw3"):
             return "Letöltés (AZW3)", u_dl(fid, e, "azw3")
         if e.fmt("epub") and conv.available:
@@ -115,6 +131,12 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             return (feed.username, feed.password or "")
         cred = session(request).get("a", {}).get(str(feed.id))
         return tuple(cred) if cred else None
+
+    def device_of(request: Request) -> str:
+        d = request.cookies.get(DEVICE_COOKIE)
+        if d in DEVICES:
+            return d
+        return "regi" if OLD_KINDLE_UA.search(request.headers.get("user-agent", "")) else "uj"
 
     def view_of(request: Request) -> str:
         v = request.query_params.get("nezet") or request.cookies.get(VIEW_COOKIE) or s.default_view
@@ -149,7 +171,9 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             "u_book": u_book,
             "u_cover": u_cover,
             "u_dl": u_dl,
-            "kindle_choice": kindle_choice,
+            "kindle_choice": lambda fid, e: kindle_choice(fid, e, device_of(request)),
+            "devices": DEVICES,
+            "device": device_of(request),
             "mail_choice": mail_choice,
             "kindle_email": kindle_email(request),
             "user": current_user(request),
@@ -352,22 +376,27 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         ext = ascii_name(e, 8).lower() or "bin"
         name = ascii_name(n)
         try:
-            if k == "azw3" and conv.available:
-                out = conv.cached(f"v3|{feed.origin}{p}|{c}|{t}", "azw3")
+            if k in ("azw3", "mobi") and conv.available:
+                out = conv.cached(f"v3|{feed.origin}{p}|{c}|{t}", k)
                 if not out.exists():
                     src = await fetch_to_file(feed, p, auth, ext)
                     cov = await fetch_cover(feed, c, auth)
                     try:
-                        await conv.convert(src, out, ["--output-profile", s.convert_profile, "--toc-title", "Tartalom",
-                                            # nincs ál-ASIN/EBOK: a Kindle így a beágyazott borítót mutatja
-                                            # (EBOK esetén az Amazontól próbálja letölteni, és üres marad)
-                                            "--share-not-sync"]
-                                           + conv.meta_args(cov, t, a, s_, i))
+                        opts = ["--toc-title", "Tartalom",
+                                # nincs ál-ASIN/EBOK: a Kindle így a beágyazott borítót mutatja
+                                # (EBOK esetén az Amazontól próbálja letölteni, és üres marad)
+                                "--share-not-sync"]
+                        if k == "mobi":  # régi Kindle: klasszikus MOBI (KF8 nélkül), 600x800 profil
+                            opts += ["--output-profile", "kindle", "--mobi-file-type", "old"]
+                        else:
+                            opts += ["--output-profile", s.convert_profile]
+                        await conv.convert(src, out, opts + conv.meta_args(cov, t, a, s_, i))
+                        await asyncio.to_thread(kindle_personal_doc, out)
                     finally:
                         src.unlink(missing_ok=True)
                         if cov:
                             cov.unlink(missing_ok=True)
-                return FileResponse(out, media_type=MIME["azw3"], headers=disposition(f"{name}.azw3"))
+                return FileResponse(out, media_type=MIME[k], headers=disposition(f"{name}.{k}"))
             src = await fetch_to_file(feed, p, auth, ext)
             if ext in ("azw3", "azw", "mobi"):
                 try:
@@ -474,7 +503,8 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
                       saved=request.query_params.get("mentve"))
 
     @app.post("/beallitasok")
-    async def settings_save(request: Request, kindle: str = Form(""), nezet: str = Form("")):
+    async def settings_save(request: Request, kindle: str = Form(""), nezet: str = Form(""),
+                            eszkoz: str = Form("")):
         sess = session(request)
         kindle = kindle.strip()
         if kindle:
@@ -484,6 +514,8 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         resp = save_session(request, RedirectResponse("/beallitasok?mentve=1", status_code=303), sess)
         if nezet in VIEWS:
             resp.set_cookie(VIEW_COOKIE, nezet, max_age=YEAR, samesite="lax")
+        if eszkoz in DEVICES:
+            resp.set_cookie(DEVICE_COOKIE, eszkoz, max_age=YEAR, samesite="lax")
         return resp
 
     @app.get("/egeszseg")

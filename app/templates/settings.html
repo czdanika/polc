@@ -10,6 +10,11 @@
   <select class="mezo" id="n" name="nezet">
     {% for key, label in views.items() %}<option value="{{ key }}"{% if key == view %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
+  <label for="d">Ez az eszköz</label>
+  <select class="mezo" id="d" name="eszkoz">
+    {% for key, label in devices.items() %}<option value="{{ key }}"{% if key == device %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <p class="small">Régi Kindle (pl. Kindle Keyboard) böngészője csak MOBI-t tud letölteni, ilyenkor a Polc MOBI-ra konvertál.</p>
   {% if can_mail %}
   <label for="k">Kindle e-mail címed (…@kindle.com)</label>
   <input class="mezo" id="k" type="text" name="kindle" value="{{ own_email }}" placeholder="{{ (user.kindle if user else none) or s.kindle_email or 'pelda_123@kindle.com' }}" autocapitalize="off" autocorrect="off">
