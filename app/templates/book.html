@@ -32,9 +32,11 @@
   {% endif %}
 </div>
 
-{% if e.acquisitions|length > 1 or not kc %}
+<div class="small">Eszköz: {{ devices[device] }} · <a href="/beallitasok">módosítás</a></div>
+{% if device == 'regi' %}{% set others = e.acquisitions|selectattr('ext', 'in', ['mobi', 'txt', 'prc', 'azw'])|list %}{% else %}{% set others = e.acquisitions %}{% endif %}
+{% if others and (others|length > 1 or not kc) %}
 <div class="small">Egyéb formátumok:
-{% for a in e.acquisitions %}<a class="btn kicsi" href="{{ u_dl(feed.id, e, a.ext) }}">{{ a.label }}</a>{% endfor %}
+{% for a in others %}<a class="btn kicsi" href="{{ u_dl(feed.id, e, a.ext) }}">{{ a.label }}</a>{% endfor %}
 </div>
 {% endif %}
 

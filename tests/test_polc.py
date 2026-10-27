@@ -301,3 +301,10 @@ def test_legacy_azw_cookie_falls_back_to_mobi(client):
     client.cookies.set("polc_eszkoz", "azw")
     r = client.get("/k/0?p=%2Fopds%2Fnew&nezet=lista", headers={"User-Agent": PW_UA})
     assert "Letöltés (AZW3)" not in r.text and "Letöltés (MOBI)" in r.text
+
+
+def test_old_device_hides_azw3_links(client):
+    login(client)
+    client.post("/beallitasok", data={"nezet": "lista", "eszkoz": "regi"})
+    r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-3"})  # EPUB + AZW3
+    assert "e=azw3" not in r.text and "Letöltés Kindle-re (MOBI)" in r.text and "Régebbi Kindle" in r.text
