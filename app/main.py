@@ -15,7 +15,7 @@ from starlette.background import BackgroundTask
 from . import __version__
 from .config import Feed, Settings, load_settings
 from .opds import Client, Entry, NeedLogin, UpstreamError, search_path
-from .services import KINDLE_OK, Converter, Covers, Vault, ascii_name, send_mail
+from .services import KINDLE_OK, Converter, Covers, Vault, ascii_name, kindle_personal_doc, send_mail
 
 BASE = Path(__file__).parent
 COOKIE = "polc"
@@ -297,6 +297,11 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
                             cov.unlink(missing_ok=True)
                 return FileResponse(out, media_type=MIME["azw3"], headers=disposition(f"{name}.azw3"))
             src = await fetch_to_file(feed, p, auth, ext)
+            if ext in ("azw3", "azw", "mobi"):
+                try:
+                    await asyncio.to_thread(kindle_personal_doc, src)
+                except Exception:
+                    pass  # hibás fejléc esetén az eredeti fájl megy
         except NeedLogin:
             return to_login(fid, request.headers.get("referer") or "/")
         except UpstreamError as err:

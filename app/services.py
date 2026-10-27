@@ -195,3 +195,47 @@ class Covers:
             total += f.stat().st_size
             if total > keep_mb * 1024 * 1024:
                 f.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------- Kindle személyes dokumentum
+
+def kindle_personal_doc(path: Path) -> bool:
+    """MOBI/AZW3 átjelölése személyes dokumentumra (PDOC), helyben, a fájlméret változtatása nélkül.
+
+    A Calibre-ből jövő Kindle-fájlok "EBOK" típusúak, ál-ASIN-nel (113/504 EXTH). Ilyenkor a Kindle
+    az Amazontól kéri a borítót, nem kapja meg, és üres marad. PDOC-ként a beágyazott borítót mutatja.
+    """
+    import struct
+
+    data = bytearray(path.read_bytes())
+    if len(data) < 86 or data[60:68] not in (b"BOOKMOBI", b"TEXtREAd"):
+        return False
+    nrec = struct.unpack_from(">H", data, 76)[0]
+    changed = False
+    for i in range(nrec):
+        off = struct.unpack_from(">I", data, 78 + i * 8)[0]
+        if off + 24 > len(data) or data[off + 16:off + 20] != b"MOBI":
+            continue
+        mobi_len = struct.unpack_from(">I", data, off + 20)[0]
+        p = off + 16 + mobi_len
+        if data[p:p + 4] != b"EXTH":
+            continue
+        count = struct.unpack_from(">I", data, p + 8)[0]
+        q = p + 12
+        for _ in range(count):
+            if q + 8 > len(data):
+                break
+            code, length = struct.unpack_from(">II", data, q)
+            if length < 8:
+                break
+            if code == 501 and data[q + 8:q + 12] == b"EBOK":
+                data[q + 8:q + 12] = b"PDOC"
+                changed = True
+            elif code in (113, 504):
+                # ál-ASIN "kikapcsolása": ismeretlen kódra írjuk, amit a Kindle figyelmen kívül hagy
+                struct.pack_into(">I", data, q, 65000 + (code % 1000))
+                changed = True
+            q += length
+    if changed:
+        path.write_bytes(bytes(data))
+    return changed

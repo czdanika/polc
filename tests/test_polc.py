@@ -153,3 +153,24 @@ def test_mail_epub_has_cover(client, monkeypatch):
     client.post("/kuldes/0", data={"p": "/opds/download/0/epub/", "id": "urn:uuid:book-0", "lista": "/opds/new"})
     names = zipfile.ZipFile(io.BytesIO(sent["data"])).namelist()
     assert any("cover" in n.lower() and n.lower().endswith((".jpg", ".jpeg")) for n in names), names
+
+
+@pytest.mark.skipif(not shutil.which("ebook-convert"), reason="Calibre nincs telepítve")
+def test_existing_azw3_becomes_personal_doc(tmp_path):
+    """A Calibre-ben már meglévő (EBOK, ál-ASIN-es) AZW3 PDOC-ra javítva, borító megmarad."""
+    import subprocess
+    from PIL import Image
+    from app.services import kindle_personal_doc
+    epub, cover, azw = tmp_path / "b.epub", tmp_path / "c.jpg", tmp_path / "b.azw3"
+    epub.write_bytes(mock_calibre.make_epub(mock_calibre.BOOKS[0]))
+    Image.new("RGB", (600, 900), (10, 120, 60)).save(cover)
+    subprocess.run(["ebook-convert", str(epub), str(azw), "--cover", str(cover)], capture_output=True, check=True)
+    assert b"EBOK" in azw.read_bytes()
+    size = azw.stat().st_size
+    assert kindle_personal_doc(azw)
+    data = azw.read_bytes()
+    assert b"EBOK" not in data and b"PDOC" in data and len(data) == size
+    got = tmp_path / "got.jpg"
+    subprocess.run(["ebook-meta", str(azw), f"--get-cover={got}"], capture_output=True)
+    assert got.exists() and got.stat().st_size > 1000
+    assert not kindle_personal_doc(azw)  # másodszor már nincs mit javítani
