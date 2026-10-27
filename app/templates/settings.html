@@ -14,7 +14,7 @@
   <select class="mezo" id="d" name="eszkoz">
     {% for key, label in devices.items() %}<option value="{{ key }}"{% if key == device %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
-  <p class="small">Régi Kindle (pl. Kindle Keyboard) böngészője csak MOBI-t tud letölteni, ilyenkor a Polc MOBI-ra konvertál.</p>
+  <p class="small">A régebbi Kindle-ök böngészője nem engedi letölteni a .azw3 fájlt. Paperwhite 1–3 / Touch esetén a Polc AZW3-at küld .azw néven. Ha az nem nyílik meg, válaszd a MOBI-t.</p>
   <p class="small">Böngésző azonosító: <b>{{ ua or '–' }}</b></p>
   {% if can_mail %}
   <label for="k">Kindle e-mail címed (…@kindle.com)</label>

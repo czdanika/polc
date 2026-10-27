@@ -294,3 +294,28 @@ def test_old_kindle_gets_mobi6_with_cover(client, tmp_path):
     cov = tmp_path / "c.jpg"
     subprocess.run(["ebook-meta", str(out), f"--get-cover={cov}"], capture_output=True)
     assert cov.exists() and cov.stat().st_size > 1000
+
+
+def test_azw_mode_existing_azw3(client):
+    import html as h, re
+    login(client)
+    client.post("/beallitasok", data={"nezet": "lista", "eszkoz": "azw"})
+    r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-3"})  # Alapítvány: van AZW3
+    assert "Letöltés (AZW)" in r.text and "Letöltés (AZW3)" not in r.text
+    url = h.unescape(re.search(r'href="(/letolt/0\?[^"]*x=azw[^"]*)"', r.text).group(1))
+    assert client.get(url).headers["content-disposition"] == 'attachment; filename="Isaac Asimov - Alapitvany.azw"'
+
+
+@pytest.mark.skipif(not shutil.which("ebook-convert"), reason="Calibre nincs telepítve")
+def test_azw_mode_converts_kf8_named_azw(client):
+    import html as h, re, struct
+    login(client)
+    client.post("/beallitasok", data={"nezet": "lista", "eszkoz": "azw"})
+    r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-0"})  # csak EPUB
+    assert "Letöltés Kindle-re (AZW)" in r.text
+    url = h.unescape(re.search(r'href="(/letolt/0\?[^"]*k=azw3[^"]*)"', r.text).group(1))
+    resp = client.get(url)
+    assert resp.headers["content-disposition"].endswith('.azw"')
+    data = resp.content
+    r0 = struct.unpack_from(">I", data, 78)[0]
+    assert struct.unpack_from(">I", data, r0 + 36)[0] == 8 and b"EBOK" not in data  # KF8

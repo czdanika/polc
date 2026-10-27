@@ -25,7 +25,11 @@ VIEW_COOKIE = "polc_nezet"
 YEAR = 60 * 60 * 24 * 365
 VIEWS = {"lista": "Lista", "racs": "Borítók", "tomor": "Tömör"}
 DEVICE_COOKIE = "polc_eszkoz"
-DEVICES = {"uj": "Új Kindle (2012 után, AZW3)", "regi": "Régi Kindle (csak MOBI)"}
+DEVICES = {
+    "uj": "Új Kindle (AZW3)",
+    "azw": "Régebbi Kindle, Paperwhite 1–3 / Touch (AZW3 .azw néven)",
+    "regi": "Régi Kindle, Keyboard / 1 / 2 / DX (MOBI)",
+}
 CONVERT_SOURCES = ("epub", "azw3", "fb2", "docx", "rtf", "htm", "html", "kepub")
 # Kindle 1/2/DX és Kindle Keyboard: "Kindle/1.0", "Kindle/2.0", "Kindle/3.0" (a "+" nélküli 3.0)
 OLD_KINDLE_UA = __import__("re").compile(r"Kindle/(?:[12]\.\d|3\.0(?!\+))")
@@ -72,9 +76,11 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
     def u_cover(fid: int, p: str | None, w: int = 200) -> str:
         return f"/borito/{fid}?" + urlencode({"p": p or "", "w": w})
 
-    def u_dl(fid: int, e: Entry, ext: str, convert: str | None = None) -> str:
+    def u_dl(fid: int, e: Entry, ext: str, convert: str | None = None, as_ext: str | None = None) -> str:
         a = e.fmt(ext)
         params = {"p": a.path if a else "", "e": ext, "n": dl_name(e)}
+        if as_ext:
+            params["x"] = as_ext
         if convert:
             params["k"] = convert
             params.update({"t": e.title, "a": e.author_str})
@@ -102,6 +108,17 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
                         return "Letöltés Kindle-re (MOBI)", u_dl(fid, e, src, "mobi")
             if e.fmt("txt"):
                 return "Letöltés (TXT)", u_dl(fid, e, "txt")
+            return None
+        if device == "azw":
+            # a régebbi böngésző a .azw3-at nem engedi letölteni, a .azw-t igen (a tartalom KF8/AZW3)
+            if e.fmt("azw3"):
+                return "Letöltés (AZW)", u_dl(fid, e, "azw3", as_ext="azw")
+            if conv.available:
+                for src in CONVERT_SOURCES:
+                    if e.fmt(src):
+                        return "Letöltés Kindle-re (AZW)", u_dl(fid, e, src, "azw3", as_ext="azw")
+            if e.fmt("mobi"):
+                return "Letöltés (MOBI)", u_dl(fid, e, "mobi")
             return None
         if e.fmt("azw3"):
             return "Letöltés (AZW3)", u_dl(fid, e, "azw3")
@@ -368,13 +385,14 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
     @app.get("/letolt/{fid}")
     async def download(request: Request, fid: int, p: str, e: str = "epub", n: str = "konyv", k: str | None = None,
                        c: str | None = None, t: str | None = None, a: str | None = None,
-                       s_: str | None = Query(None, alias="s"), i: str | None = None):
+                       s_: str | None = Query(None, alias="s"), i: str | None = None, x: str | None = None):
         feed = get_feed(fid)
         if not feed or not p:
             return message(request, "Hiba", "Hiányzó letöltési cím.", 400, "/")
         auth = auth_for(request, feed)
         ext = ascii_name(e, 8).lower() or "bin"
         name = ascii_name(n)
+        out_ext = "azw" if x == "azw" else None  # kiterjesztés-csere a régebbi Kindle böngészőjéhez
         try:
             if k in ("azw3", "mobi") and conv.available:
                 out = conv.cached(f"v3|{feed.origin}{p}|{c}|{t}", k)
@@ -396,7 +414,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
                         src.unlink(missing_ok=True)
                         if cov:
                             cov.unlink(missing_ok=True)
-                return FileResponse(out, media_type=MIME[k], headers=disposition(f"{name}.{k}"))
+                return FileResponse(out, media_type=MIME[k], headers=disposition(f"{name}.{out_ext or k}"))
             src = await fetch_to_file(feed, p, auth, ext)
             if ext in ("azw3", "azw", "mobi"):
                 try:
@@ -410,7 +428,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         except RuntimeError as err:
             return message(request, "Konvertálási hiba", str(err), 500, request.headers.get("referer"))
         return FileResponse(src, media_type=MIME.get(ext, "application/octet-stream"),
-                            headers=disposition(f"{name}.{ext}"),
+                            headers=disposition(f"{name}.{out_ext or ext}"),
                             background=BackgroundTask(src.unlink, missing_ok=True))
 
     @app.post("/kuldes/{fid}")
