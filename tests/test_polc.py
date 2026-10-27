@@ -303,6 +303,7 @@ def test_legacy_azw_cookie_falls_back_to_mobi(client):
     assert "Letöltés (AZW3)" not in r.text and "Letöltés (MOBI)" in r.text
 
 
+@pytest.mark.skipif(not shutil.which("ebook-convert"), reason="Calibre nincs telepítve")
 def test_old_device_hides_azw3_links(client):
     login(client)
     client.post("/beallitasok", data={"nezet": "lista", "eszkoz": "regi"})
