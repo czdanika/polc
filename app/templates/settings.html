@@ -15,6 +15,7 @@
     {% for key, label in devices.items() %}<option value="{{ key }}"{% if key == device %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
   <p class="small">Régi Kindle (pl. Kindle Keyboard) böngészője csak MOBI-t tud letölteni, ilyenkor a Polc MOBI-ra konvertál.</p>
+  <p class="small">Böngésző azonosító: <b>{{ ua or '–' }}</b></p>
   {% if can_mail %}
   <label for="k">Kindle e-mail címed (…@kindle.com)</label>
   <input class="mezo" id="k" type="text" name="kindle" value="{{ own_email }}" placeholder="{{ (user.kindle if user else none) or s.kindle_email or 'pelda_123@kindle.com' }}" autocapitalize="off" autocorrect="off">

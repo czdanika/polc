@@ -499,6 +499,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
     async def settings_page(request: Request):
         sess = session(request)
         return render(request, "settings.html", own_email=sess.get("kindle", ""),
+                      ua=request.headers.get("user-agent", "")[:300],
                       logged_in=bool(sess.get("a")) or bool(current_user(request)), can_mail=s.mail_enabled, can_convert=conv.available,
                       saved=request.query_params.get("mentve"))
 
