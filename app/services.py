@@ -269,3 +269,16 @@ def verify_password(password: str, secret: str) -> bool:
 def secret_fingerprint(secret: str) -> str:
     """Rövid ujjlenyomat: jelszócsere után a régi munkamenetek érvénytelenek."""
     return hashlib.sha256(("polc|" + secret).encode()).hexdigest()[:16]
+
+
+def to_jpeg(data: bytes, max_height: int = 1920) -> bytes:
+    """Bármilyen borítóképet (WebP, PNG, ...) RGB JPEG-gé alakít a Kindle-fájlokba ágyazáshoz."""
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(data))
+    img = img.convert("RGB")
+    if img.height > max_height:
+        img = img.resize((max(1, int(img.width * max_height / img.height)), max_height), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=90)
+    return out.getvalue()

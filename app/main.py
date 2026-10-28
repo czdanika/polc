@@ -17,7 +17,7 @@ from . import __version__
 from .config import Feed, Settings, load_settings
 from .opds import Client, Entry, NeedLogin, UpstreamError, search_path
 from .services import (KINDLE_OK, Converter, Covers, Vault, ascii_name, kindle_personal_doc, secret_fingerprint,
-                       send_mail, verify_password)
+                       send_mail, to_jpeg, verify_password)
 
 BASE = Path(__file__).parent
 COOKIE = "polc"
@@ -362,6 +362,12 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             return None
         if len(data) < 100:
             return None
+        # A Calibre-Web gyakran WebP-ként adja a borítót; azt a Calibre MOBI/AZW3 írója csendben eldobja.
+        # Ezért mindig valódi JPEG-gé alakítjuk.
+        try:
+            data = await asyncio.to_thread(to_jpeg, data)
+        except Exception:
+            return None
         fd, name = tempfile.mkstemp(suffix=".jpg", dir=s.data_dir)
         with open(fd, "wb") as fh:
             fh.write(data)
@@ -379,7 +385,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         name = ascii_name(n)
         try:
             if k in ("azw3", "mobi") and conv.available:
-                out = conv.cached(f"v3|{feed.origin}{p}|{c}|{t}", k)
+                out = conv.cached(f"v4|{feed.origin}{p}|{c}|{t}", k)
                 if not out.exists():
                     src = await fetch_to_file(feed, p, auth, ext)
                     cov = await fetch_cover(feed, c, auth)

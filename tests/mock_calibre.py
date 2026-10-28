@@ -158,8 +158,8 @@ def cover(req: Request, i: int):
     d.rectangle([30, 30, 570, 870], outline=(255, 255, 255), width=8)
     d.text((60, 400), BOOKS[i]["title"], fill=(255, 255, 255))
     out = io.BytesIO()
-    img.save(out, "JPEG")
-    return Response(out.getvalue(), media_type="image/jpeg")
+    img.save(out, "WEBP")  # a Calibre-Web is gyakran WebP-t ad
+    return Response(out.getvalue(), media_type="image/webp")
 
 
 def make_epub(b: dict) -> bytes:
