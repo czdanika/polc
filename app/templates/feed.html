@@ -18,7 +18,7 @@
   {% for n in page.navs %}<a href="{{ u_feed(feed.id, n.nav_path) }}">{{ n.title }}{% if n.count %}<span class="db">{{ n.count }}</span>{% endif %}</a>{% endfor %}
   </div>
   {% else %}
-  <div class="tiles">{% for n in page.navs %}<a class="tile" href="{{ u_feed(feed.id, n.nav_path) }}">{{ n.title }}{% if n.count %}<span class="db">{{ n.count }} db</span>{% elif n.summary_text and n.summary_text|length < 60 %}<span class="db">{{ n.summary_text }}</span>{% endif %}</a>{% endfor %}</div>
+  <div class="tiles">{% for n in page.navs %}<a class="tile" href="{{ u_feed(feed.id, n.nav_path) }}">{{ n.title }}{% if n.count %}<span class="db">{{ n.count }} db</span>{% endif %}</a>{% endfor %}</div>
   {% endif %}
 {% endif %}
 

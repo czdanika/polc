@@ -2,12 +2,12 @@
 <html lang="hu">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
 <title>{% block title %}{{ heading or title }}{% endblock %} – {{ title }}</title>
 <style>
 /* E-ink barát: fekete-fehér, nincs flexbox, nincs animáció, nagy érintési felületek */
 * { -webkit-box-sizing: border-box; -moz-box-sizing: border-box; box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+html, body { margin: 0; padding: 0; background: #fff; color: #000; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
 body { font-family: Georgia, "Times New Roman", serif; font-size: 20px; line-height: 1.35; }
 a { color: #000; }
 .wrap { padding: 10px 14px 30px 14px; }
@@ -18,11 +18,8 @@ a { color: #000; }
 .toplinks { text-align: right; white-space: nowrap; }
 .toplinks a { display: inline-block; padding: 8px 10px; font-size: 18px; text-decoration: none; border: 2px solid #000; margin-left: 6px; }
 .search { margin: 12px 0 6px 0; }
-.search table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.search td { padding: 0; vertical-align: middle; }
-.search td.gomb { width: 7.5em; padding-left: 6px; }
 .search input[type=text] { display: block; width: 100%; max-width: 100%; margin: 0; -webkit-appearance: none; font-size: 22px; padding: 10px; border: 2px solid #000; border-radius: 0; font-family: inherit; }
-.search button { display: block; width: 100%; margin: 0; -webkit-appearance: none; font-size: 20px; padding: 10px 4px; border: 2px solid #000; background: #000; color: #fff; font-family: inherit; }
+.search button { display: block; width: 100%; margin: 6px 0 0 0; -webkit-appearance: none; font-size: 20px; padding: 10px 4px; border: 2px solid #000; background: #000; color: #fff; font-family: inherit; }
 h1 { font-size: 26px; margin: 14px 0 6px 0; }
 h2 { font-size: 22px; margin: 18px 0 6px 0; }
 .crumb { font-size: 17px; margin: 4px 0 10px 0; }
@@ -88,10 +85,10 @@ input.mezo, select.mezo { width: 100%; font-size: 21px; padding: 10px; border: 2
 </tr></table></div>
 <div class="wrap">
 {% if feed and not no_search %}
-<form class="search" action="/kereses/{{ feed.id }}" method="get"><table><tr>
-  <td><input type="text" name="q" value="{{ query or '' }}" placeholder="Cím, szerző, kulcsszó…" autocomplete="off"></td>
-  <td class="gomb"><button type="submit">Keresés</button></td>
-</tr></table></form>
+<form class="search" action="/kereses/{{ feed.id }}" method="get">
+  <input type="text" name="q" value="{{ query or '' }}" placeholder="Cím, szerző, kulcsszó…" autocomplete="off">
+  <button type="submit">Keresés</button>
+</form>
 {% endif %}
 {% block content %}{% endblock %}
 <div class="foot">{{ title }} {{ version }} · magyar OPDS proxy Kindle-re</div>
