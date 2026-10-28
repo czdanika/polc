@@ -7,7 +7,7 @@ Magyar nyelvű, Kindle-barát OPDS proxy. A Calibre / Calibre-Web OPDS katalógu
 - **Magyar felület**, a Calibre-Web angol menüpontjait is magyarra fordítja (Népszerű könyvek, Szerzők, Sorozatok…)
 - **Három nézet:** Lista (borító + adatok + gyors letöltés), Borítók (rács), Tömör (csak szöveg, leggyorsabb e-inken). A választást megjegyzi.
 - **Keresés** minden oldalon (OpenSearch alapján)
-- **Könyv adatlap:** borító, szerző, sorozat és sorszám, kiadó, nyelv, címkék, formátumok és méret, leírás
+- **Könyv adatlap:** borító, szerző, sorozat és sorszám, kiadó, nyelv, címkék, formátumok és méret, leírás. A **szerzőre, sorozatra, kiadóra és címkékre kattintva** megjelenik az összes hozzájuk tartozó könyv (Calibre-Web indexek alapján, ennek hiányában keresés).
 - **Letöltés Kindle-re:** EPUB → **AZW3** konverzió Calibre `ebook-convert`-tel (szebb, mint a régi MOBI), **beágyazott borítóval**, címmel, szerzővel és sorozattal, így a Kindle könyvtárában is látszik a borító. Ha a könyvtárban már van AZW3/MOBI, azt adja, de személyes dokumentumra (PDOC) átjelölve, mert a Calibre-féle „bolti” (EBOK) jelölésnél a Kindle nem mutatja a borítót.
 - **Régi Kindle támogatás:** a régi készülékek (pl. Kindle Keyboard) böngészője csak MOBI-t tölt le. Eszközönként a Beállításokban kell kiválasztani, mert a régebbi és az új Kindle böngészője ugyanúgy azonosítja magát (csak a nagyon régi Kindle 1/2/Keyboard ismerhető fel automatikusan), és ilyenkor a meglévő MOBI-t adja, vagy EPUB/AZW3-ból klasszikus **MOBI**-t konvertál beágyazott borítóval.
 - **Küldés Kindle-re e-mailben** (Amazon Send-to-Kindle): EPUB-ot küld beágyazott borítóval, felhőbe szinkronizál

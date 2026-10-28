@@ -76,7 +76,7 @@ def test_book_detail_sanitized(client):
     r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-0"})
     assert "Eger ostroma" in r.text and "alert(1)" not in r.text
     r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-3"})
-    assert "Alapítvány #1" in r.text and "SERIES:" not in r.text
+    assert "Alapítvány</a> #1" in r.text and "SERIES:" not in r.text
 
 
 def test_download_ascii_filename(client):
@@ -309,3 +309,25 @@ def test_old_device_hides_azw3_links(client):
     client.post("/beallitasok", data={"nezet": "lista", "eszkoz": "regi"})
     r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-3"})  # EPUB + AZW3
     assert "e=azw3" not in r.text and "Letöltés Kindle-re (MOBI)" in r.text and "Régebbi Kindle" in r.text
+
+
+
+def test_meta_links_resolve_to_lists(client):
+    import html as h, re
+    login(client)
+    r = client.get("/konyv/0", params={"p": "/opds/new", "id": "urn:uuid:book-4"})  # Alapítvány és Birodalom
+    links = {m.group(2): h.unescape(m.group(1)) for m in re.finditer(r'href="(/szuro/0\?[^"]+)">([^<]+)</a>', r.text)}
+    assert {"Isaac Asimov", "Alapítvány", "Móra", "Sci-fi"} <= set(links)
+    # szerző: a lapozott indexben a 2. oldalon van -> a szerző összes könyve
+    r = client.get(links["Isaac Asimov"])
+    assert r.text.count('class="bt"') == 3 and "Isaac Asimov" in r.text
+    r = client.get(links["Sci-fi"])
+    assert r.text.count('class="bt"') == 3
+    r = client.get(links["Alapítvány"])
+    assert "Második Alapítvány" in r.text
+
+
+def test_meta_link_unknown_falls_back_to_search(client):
+    login(client)
+    r = client.get("/szuro/0", params={"t": "szerzo", "n": "Nincs Ilyen"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith("/kereses/0?q=")

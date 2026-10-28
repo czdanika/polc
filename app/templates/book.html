@@ -9,13 +9,13 @@
   {% if e.cover %}<td class="c"><img src="{{ u_cover(feed.id, e.cover, 420) }}" alt=""></td>{% endif %}
   <td>
     <h1 style="margin-top:0">{{ e.title }}</h1>
-    {% if e.authors %}<div style="font-size:21px">{{ e.author_str }}</div>{% endif %}
+    {% if e.authors %}<div style="font-size:21px">{% for a in e.authors %}<a href="{{ u_meta(feed.id, 'szerzo', a) }}">{{ a }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
     <table class="meta">
-      {% if e.series %}<tr><td><b>Sorozat</b></td><td>{{ e.series }}{% if e.series_index %} #{{ e.series_index|replace('.0','') }}{% endif %}</td></tr>{% endif %}
-      {% if e.publisher %}<tr><td><b>Kiadó</b></td><td>{{ e.publisher }}</td></tr>{% endif %}
+      {% if e.series %}<tr><td><b>Sorozat</b></td><td><a href="{{ u_meta(feed.id, 'sorozat', e.series) }}">{{ e.series }}</a>{% if e.series_index %} #{{ e.series_index|replace('.0','') }}{% endif %}</td></tr>{% endif %}
+      {% if e.publisher %}<tr><td><b>Kiadó</b></td><td><a href="{{ u_meta(feed.id, 'kiado', e.publisher) }}">{{ e.publisher }}</a></td></tr>{% endif %}
       {% if e.issued %}<tr><td><b>Megjelenés</b></td><td>{{ e.issued[:10] }}</td></tr>{% endif %}
       {% if e.language %}<tr><td><b>Nyelv</b></td><td>{{ {'hun':'magyar','hu':'magyar','eng':'angol','en':'angol','ger':'német','deu':'német','de':'német'}.get(e.language, e.language) }}</td></tr>{% endif %}
-      {% if e.categories %}<tr><td><b>Címkék</b></td><td>{{ e.categories|join(', ') }}</td></tr>{% endif %}
+      {% if e.categories %}<tr><td><b>Címkék</b></td><td>{% for c in e.categories %}<a href="{{ u_meta(feed.id, 'cimke', c) }}">{{ c }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>{% endif %}
       <tr><td><b>Formátum</b></td><td>{% for a in e.acquisitions %}<span class="fmt">{{ a.label }}{% if a.size %} · {{ (a.size / 1048576)|round(1) }} MB{% endif %}</span>{% endfor %}</td></tr>
     </table>
   </td>

@@ -179,3 +179,64 @@ def download(req: Request, i: int, fmt: str):
         return deny()
     data = make_epub(BOOKS[i]) if fmt == "epub" else f"{fmt} file {i}".encode()
     return Response(data, media_type=MIME[fmt])
+
+
+# --- Calibre-Web-szerű indexek (szerző / címke / sorozat / kiadó) -------------
+
+def _names(kind):
+    if kind == "author":
+        return sorted({b["author"] for b in BOOKS})
+    if kind == "category":
+        return sorted({t for b in BOOKS for t in b["tags"]})
+    if kind == "series":
+        return sorted({b["series"] for b in BOOKS if b["series"]})
+    return ["Móra"]
+
+
+def _match(kind, name, b):
+    return {"author": b["author"] == name, "category": name in b["tags"],
+            "series": b["series"] == name, "publisher": True}[kind]
+
+
+def _index(req, kind, offset):
+    if not authed(req):
+        return deny()
+    names = _names(kind)
+    page = names[offset:offset + 3]  # kis oldalméret, hogy a lapozás is tesztelve legyen
+    links = ""
+    if offset + 3 < len(names):
+        base = "/opds/publisher" if kind == "publisher" else f"/opds/{kind}/letter/00"
+        links = f'<link rel="next" href="{base}?offset={offset + 3}" type="application/atom+xml;profile=opds-catalog"/>'
+    body = "".join(nav(n, f"/opds/{kind}/{names.index(n)}", "") for n in page)
+    return feed(kind, body, links)
+
+
+@app.get("/opds/author/letter/00")
+def idx_author(req: Request, offset: int = 0):
+    return _index(req, "author", offset)
+
+
+@app.get("/opds/category/letter/00")
+def idx_category(req: Request, offset: int = 0):
+    return _index(req, "category", offset)
+
+
+@app.get("/opds/series/letter/00")
+def idx_series(req: Request, offset: int = 0):
+    return _index(req, "series", offset)
+
+
+@app.get("/opds/publisher")
+def idx_publisher(req: Request, offset: int = 0):
+    return _index(req, "publisher", offset)
+
+
+@app.get("/opds/category/{i}")
+@app.get("/opds/series/{i}")
+@app.get("/opds/publisher/{i}")
+def by_kind(req: Request, i: int):
+    if not authed(req):
+        return deny()
+    kind = req.url.path.split("/")[2]
+    name = _names(kind)[i]
+    return feed(name, "".join(book_entry(b) for b in BOOKS if _match(kind, name, b)))

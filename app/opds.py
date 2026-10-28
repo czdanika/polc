@@ -111,6 +111,7 @@ class Entry:
     id: str
     title: str
     authors: list[str] = field(default_factory=list)
+    raw_title: str = ""
     summary_html: str = ""
     summary_text: str = ""
     nav_path: str | None = None
@@ -290,7 +291,7 @@ def parse_feed(data: bytes, feed: Feed, base_url: str) -> FeedPage:
 
     for el in root.findall("atom:entry", NS):
         title = _txt(el, "atom:title") or "(cím nélkül)"
-        e = Entry(id=_txt(el, "atom:id") or title, title=title)
+        e = Entry(id=_txt(el, "atom:id") or title, title=title, raw_title=title)
         e.authors = [a.findtext(A + "name", "").strip() for a in el.findall("atom:author", NS)]
         e.authors = [a for a in e.authors if a]
         e.language = _txt(el, "dc:language") or _txt(el, "dc11:language")

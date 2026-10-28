@@ -173,6 +173,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             "u_book": u_book,
             "u_cover": u_cover,
             "u_dl": u_dl,
+            "u_meta": u_meta,
             "kindle_choice": lambda fid, e: kindle_choice(fid, e, device_of(request)),
             "devices": DEVICES,
             "device": device_of(request),
@@ -296,6 +297,61 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             return message(request, "Hiba", str(e), 502, "/")
         return render(request, "feed.html", feed=feed, page=page, path=path, is_root=False,
                       heading=f"Keresés: „{q}”", query=q)
+
+    # ------------------------------------------------------------ szerző / címke / kiadó / sorozat szerinti lista
+
+    INDEXES = {  # Calibre-Web OPDS indexek (a "00" betű = mind)
+        "szerzo": "/author/letter/00",
+        "cimke": "/category/letter/00",
+        "sorozat": "/series/letter/00",
+        "kiado": "/publisher",
+    }
+    LABELS = {"szerzo": "Szerző", "cimke": "Címke", "sorozat": "Sorozat", "kiado": "Kiadó"}
+    index_cache: dict[tuple, tuple[float, dict[str, str]]] = {}
+
+    def norm(x: str) -> str:
+        return " ".join((x or "").casefold().split())
+
+    async def name_index(feed: Feed, kind: str, auth) -> dict[str, str]:
+        key = (feed.id, kind, auth[0] if auth else None)
+        hit = index_cache.get(key)
+        if hit and time.time() - hit[0] < 900:
+            return hit[1]
+        root = feed.root_path.split("?")[0].rstrip("/")
+        path: str | None = root + INDEXES[kind]
+        found: dict[str, str] = {}
+        seen = set()
+        for _ in range(150):  # max ~150 oldal
+            if not path or path in seen:
+                break
+            seen.add(path)
+            page = await client.feed(feed, path, auth)
+            for n in page.navs:
+                found.setdefault(norm(n.raw_title or n.title), n.nav_path)
+            path = page.next
+        index_cache[key] = (time.time(), found)
+        return found
+
+    @app.get("/szuro/{fid}")
+    async def by_meta(request: Request, fid: int, t: str, n: str):
+        feed = get_feed(fid)
+        if not feed or t not in INDEXES or not n.strip():
+            return message(request, "Hiba", "Ismeretlen szűrő.", 400, "/")
+        auth = auth_for(request, feed)
+        try:
+            idx = await name_index(feed, t, auth)
+        except NeedLogin:
+            return to_login(fid, str(request.url.path) + "?" + str(request.url.query))
+        except UpstreamError:
+            idx = {}
+        target = idx.get(norm(n))
+        if target:
+            return RedirectResponse(u_feed(fid, target), status_code=303)
+        # nem Calibre-Web, vagy nincs találat: keresés a névre
+        return RedirectResponse(f"/kereses/{fid}?" + urlencode({"q": n}), status_code=303)
+
+    def u_meta(fid: int, kind: str, name: str) -> str:
+        return f"/szuro/{fid}?" + urlencode({"t": kind, "n": name})
 
     @app.get("/konyv/{fid}", response_class=HTMLResponse)
     async def book(request: Request, fid: int, p: str, id: str):
