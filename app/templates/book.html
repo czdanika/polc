@@ -6,7 +6,7 @@
 <div class="crumb"><a href="{{ u_feed(feed.id, path) }}">« Vissza: {{ list_title or feed.name }}</a></div>
 {% if sent %}<div class="box"><b>Elküldve!</b> A könyv pár percen belül megjelenik a Kindle-öd könyvtárában (Wi-Fi szükséges).</div>{% endif %}
 <table class="detail"><tr>
-  {% if e.cover %}<td class="c"><img src="{{ u_cover(feed.id, e.cover, 420) }}" alt=""></td>{% endif %}
+  {% if e.cover %}<td class="c"><img src="{{ u_cover(feed.id, e.cover, detail_w) }}" width="{{ detail_w }}" alt=""></td>{% endif %}
   <td>
     <h1 style="margin-top:0">{{ e.title }}</h1>
     {% if e.authors %}<div style="font-size:21px">{% for a in e.authors %}<a href="{{ u_meta(feed.id, 'szerzo', a) }}">{{ a }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}

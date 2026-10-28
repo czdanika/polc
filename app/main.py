@@ -24,6 +24,7 @@ COOKIE = "polc"
 VIEW_COOKIE = "polc_nezet"
 YEAR = 60 * 60 * 24 * 365
 VIEWS = {"lista": "Lista", "racs": "Borítók", "tomor": "Tömör"}
+DETAIL_W = 240  # adatlap és rács ugyanazt a (gyorsítótárazott) borítóméretet használja
 DEVICE_COOKIE = "polc_eszkoz"
 DEVICES = {"uj": "Új Kindle (AZW3)", "regi": "Régebbi Kindle (csak MOBI)"}
 CONVERT_SOURCES = ("epub", "azw3", "fb2", "docx", "rtf", "htm", "html", "kepub")
@@ -174,6 +175,7 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
             "u_cover": u_cover,
             "u_dl": u_dl,
             "u_meta": u_meta,
+            "detail_w": DETAIL_W,
             "kindle_choice": lambda fid, e: kindle_choice(fid, e, device_of(request)),
             "devices": DEVICES,
             "device": device_of(request),
@@ -271,6 +273,9 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         except UpstreamError as e:
             return message(request, "Hiba", str(e), 502, "/")
         is_root = path == feed.root_path
+        warm = [e.cover for e in page.books if e.cover]
+        if warm:
+            asyncio.get_running_loop().create_task(warm_covers(feed, warm[:40], auth_for(request, feed)))
         return render(request, "feed.html", feed=feed, page=page, path=path, is_root=is_root,
                       heading=(feed.name if is_root else page.title) or feed.name)
 
@@ -332,6 +337,20 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         index_cache[key] = (time.time(), found)
         return found
 
+    warming: set[tuple] = set()
+
+    async def warm_index(feed: Feed, kind: str, auth) -> None:
+        key = (feed.id, kind, auth[0] if auth else None)
+        if key in warming:
+            return
+        warming.add(key)
+        try:
+            await name_index(feed, kind, auth)
+        except Exception:
+            pass
+        finally:
+            warming.discard(key)
+
     @app.get("/szuro/{fid}")
     async def by_meta(request: Request, fid: int, t: str, n: str):
         feed = get_feed(fid)
@@ -367,6 +386,11 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         entry = next((e for e in page.entries if e.id == id), None)
         if not entry:
             return message(request, "Nem található", "A könyv már nincs ezen a listán.", 404, u_feed(fid, p))
+        # a szerző/címke/kiadó/sorozat indexek előtöltése a háttérben, hogy a linkek azonnal működjenek
+        auth = auth_for(request, feed)
+        for kind in INDEXES:
+            if (feed.id, kind, auth[0] if auth else None) not in index_cache:
+                asyncio.get_running_loop().create_task(warm_index(feed, kind, auth))
         sent = request.query_params.get("kuldve")
         return render(request, "book.html", feed=feed, e=entry, path=p, list_title=page.title,
                       can_mail=s.mail_enabled, sent=sent)
@@ -382,15 +406,35 @@ def create_app(settings: Settings | None = None, transport=None) -> FastAPI:
         if target.exists():
             return FileResponse(target, media_type="image/jpeg", headers=headers)
         try:
-            data, _ = await client.get(feed, p, auth_for(request, feed), cache=False)
-            out = await asyncio.to_thread(covers.process, data, w)
+            out = await make_cover(feed, p, w, auth_for(request, feed))
         except NeedLogin:
             return Response(status_code=401)
         except Exception:
             return Response(status_code=404)
+        return Response(out, media_type="image/jpeg", headers=headers)
+
+    async def make_cover(feed: Feed, p: str, w: int, auth) -> bytes:
+        target = covers.path(f"{feed.origin}{p}", w)
+        if target.exists():
+            return target.read_bytes()
+        data, _ = await client.get(feed, p, auth, cache=False)
+        out = await asyncio.to_thread(covers.process, data, w)
         target.write_bytes(out)
         covers.prune()
-        return Response(out, media_type="image/jpeg", headers=headers)
+        return out
+
+    warm_lock = asyncio.Semaphore(2)
+
+    async def warm_covers(feed: Feed, paths: list[str], auth) -> None:
+        """Az adatlap borítóit előre elkészíti, hogy a könyvre kattintva azonnal betöltsön."""
+        for p in paths:
+            if covers.path(f"{feed.origin}{p}", DETAIL_W).exists():
+                continue
+            async with warm_lock:
+                try:
+                    await make_cover(feed, p, DETAIL_W, auth)
+                except Exception:
+                    pass
 
     async def fetch_to_file(feed: Feed, path: str, auth, suffix: str) -> Path:
         fd, name = tempfile.mkstemp(suffix="." + suffix, dir=s.data_dir)

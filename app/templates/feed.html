@@ -25,7 +25,7 @@
 {% if page.books %}
   {% if view == 'racs' %}
   <div class="grid">
-  {% for e in page.books %}<a class="cell" href="{{ u_book(feed.id, path, e.id) }}">{% if e.thumb %}<img src="{{ u_cover(feed.id, e.thumb, 240) }}" alt="">{% else %}<div class="noimg"><span>{{ e.title }}</span></div>{% endif %}<span class="ct">{{ e.title }}</span><span class="ca">{{ e.author_str }}</span></a>{% endfor %}
+  {% for e in page.books %}<a class="cell" href="{{ u_book(feed.id, path, e.id) }}">{% if e.thumb %}<img src="{{ u_cover(feed.id, e.thumb, detail_w) }}" alt="">{% else %}<div class="noimg"><span>{{ e.title }}</span></div>{% endif %}<span class="ct">{{ e.title }}</span><span class="ca">{{ e.author_str }}</span></a>{% endfor %}
   </div>
   {% elif view == 'tomor' %}
   <ol class="compact">
